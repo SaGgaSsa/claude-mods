@@ -24,23 +24,6 @@ const MOVES: Record<string, [number, number]> = {
 
 const CLEAR_KEYS = new Set(['0', 'backspace', 'delete', ' '])
 
-const QUADRANTS: Record<number, string> = {
-  1: '▘',
-  2: '▝',
-  3: '▀',
-  4: '▖',
-  5: '▌',
-  6: '▞',
-  7: '▛',
-  8: '▗',
-  9: '▚',
-  10: '▐',
-  11: '▜',
-  12: '▄',
-  13: '▙',
-  14: '▟',
-}
-
 const Board: ClientModule<BoardProps> = (props, surface) => {
   const { Box, Text } = surface.elements
   const geometry = geometryAtScale(props.geometry.scale)
@@ -73,8 +56,7 @@ const Board: ClientModule<BoardProps> = (props, surface) => {
   const backgroundAt = (row: number, col: number): string => {
     const index = row * 9 + col
     const digit = props.board[index] ?? '0'
-    const isCursor = index === props.cursor
-    if (isCursor) return clashes.has(index) ? CLASH_BACKGROUND : CURSOR
+    if (index === props.cursor) return clashes.has(index) ? CLASH_BACKGROUND : CURSOR
     return digit !== '0' && digit === selectedDigit ? MATCH : PAPER
   }
 
@@ -84,57 +66,12 @@ const Board: ClientModule<BoardProps> = (props, surface) => {
     }
   }
 
-  const linePixel = (character: string, color: string, backgroundColor = PAPER): Pixel => ({
+  const linePixel = (character: string, color: string): Pixel => ({
     character,
     color,
-    backgroundColor,
+    backgroundColor: PAPER,
     bold: false,
   })
-
-  const verticalPixel = (left: string, right: string): Pixel => {
-    if (left === right) {
-      return linePixel(left === PAPER ? '│' : ' ', left === PAPER ? FINE_LINE : left)
-    }
-    return left === PAPER
-      ? linePixel('▐', right, left)
-      : linePixel('▌', left, right)
-  }
-
-  const horizontalPixel = (
-    above: string,
-    below: string,
-    character: string,
-    color: string,
-  ): Pixel => {
-    if (above === below) {
-      return linePixel(above === PAPER ? character : ' ', above === PAPER ? color : above)
-    }
-    return linePixel('▀', above, below)
-  }
-
-  const blockHorizontalPixel = (above: string, below: string): Pixel => {
-    if (above === below) return linePixel('━', WOOD, above)
-    if (above !== PAPER) return linePixel('▀', above, WOOD)
-    return linePixel('▄', below, WOOD)
-  }
-
-  const crossingPixel = (
-    corners: [string, string, string, string],
-    baseColor: string,
-    standard: string,
-  ): Pixel => {
-    const colored = corners.filter(color => color !== PAPER)
-    if (colored.length === 0) return linePixel(standard, baseColor)
-
-    const accent = colored.sort((a, b) =>
-      corners.filter(color => color === b).length - corners.filter(color => color === a).length,
-    )[0]!
-    const mask = corners.reduce((value, color, index) =>
-      color === accent ? value | (1 << index) : value,
-    0)
-    if (mask === 15) return linePixel(' ', accent, accent)
-    return linePixel(QUADRANTS[mask] ?? standard, accent, baseColor)
-  }
 
   for (let row = 0; row < 9; row++) {
     for (let col = 0; col < 9; col++) {
@@ -151,7 +88,7 @@ const Board: ClientModule<BoardProps> = (props, surface) => {
 
       for (let dy = 0; dy < geometry.cellHeight; dy++) {
         for (let dx = 0; dx < geometry.cellWidth; dx++) {
-          put(x + dx, y + dy, linePixel(' ', FINE_LINE, backgroundColor))
+          pixels[y + dy]![x + dx]!.backgroundColor = backgroundColor
         }
       }
 
@@ -172,13 +109,11 @@ const Board: ClientModule<BoardProps> = (props, surface) => {
       for (let col = 0; col < 8; col++) {
         const x = geometry.cellPosition(row, col).x - 1 + geometry.cellWidth
         if (col % 3 !== 2) {
-          put(x, y + subrow, verticalPixel(backgroundAt(row, col), backgroundAt(row, col + 1)))
+          put(x, y + subrow, linePixel('│', FINE_LINE))
         } else {
-          const left = backgroundAt(row, col)
-          const right = backgroundAt(row, col + 1)
-          put(x, y + subrow, linePixel(' ', left, left))
+          put(x, y + subrow, linePixel(' ', PAPER))
           put(x + 1, y + subrow, linePixel('┃', WOOD))
-          put(x + 2, y + subrow, linePixel(' ', right, right))
+          put(x + 2, y + subrow, linePixel(' ', PAPER))
         }
       }
     }
@@ -193,45 +128,18 @@ const Board: ClientModule<BoardProps> = (props, surface) => {
     for (let col = 0; col < 9; col++) {
       const position = geometry.cellPosition(row, col)
       const x = position.x - 1
-      const above = backgroundAt(row, col)
-      const below = backgroundAt(row + 1, col)
       for (let dx = 0; dx < geometry.cellWidth; dx++) {
-        const pixel = isBlock
-          ? blockHorizontalPixel(above, below)
-          : horizontalPixel(above, below, character, color)
-        put(x + dx, y, pixel)
+        put(x + dx, y, linePixel(character, color))
       }
 
       if (col === 8) continue
       const separatorX = x + geometry.cellWidth
       if (col % 3 !== 2) {
-        const corners: [string, string, string, string] = [
-          above,
-          backgroundAt(row, col + 1),
-          below,
-          backgroundAt(row + 1, col + 1),
-        ]
-        put(
-          separatorX,
-          y,
-          crossingPixel(corners, color, isBlock ? '┿' : '┼'),
-        )
+        put(separatorX, y, linePixel(isBlock ? '┿' : '┼', color))
       } else {
-        const rightAbove = backgroundAt(row, col + 1)
-        const rightBelow = backgroundAt(row + 1, col + 1)
-        const leftGap = isBlock
-          ? blockHorizontalPixel(above, below)
-          : horizontalPixel(above, below, character, color)
-        const rightGap = isBlock
-          ? blockHorizontalPixel(rightAbove, rightBelow)
-          : horizontalPixel(rightAbove, rightBelow, character, color)
-        put(separatorX, y, leftGap)
-        put(
-          separatorX + 1,
-          y,
-          crossingPixel([above, rightAbove, below, rightBelow], WOOD, isBlock ? '╋' : '╂'),
-        )
-        put(separatorX + 2, y, rightGap)
+        put(separatorX, y, linePixel(character, color))
+        put(separatorX + 1, y, linePixel(isBlock ? '╋' : '╂', WOOD))
+        put(separatorX + 2, y, linePixel(character, color))
       }
     }
   }
@@ -250,7 +158,7 @@ const Board: ClientModule<BoardProps> = (props, surface) => {
     }
 
     return (
-      <Box key={`line:${y}`} flexDirection="row" backgroundColor={PAPER}>
+      <Box key={`row:${y}`} flexDirection="row" backgroundColor={PAPER}>
         {runs.map((run, index) => (
           <Text
             key={`run:${y}:${index}`}
@@ -265,16 +173,30 @@ const Board: ClientModule<BoardProps> = (props, surface) => {
     )
   })
 
+  const frameRow = (key: string) => (
+    <Text key={key} color={WOOD} backgroundColor={WOOD}>
+      {' '.repeat(geometry.width)}
+    </Text>
+  )
+
+  const framedRows = rows.map((row, y) => (
+    <Box key={`framed:${y}`} flexDirection="row" backgroundColor={WOOD}>
+      <Text color={WOOD} backgroundColor={WOOD}> </Text>
+      {row}
+      <Text color={WOOD} backgroundColor={WOOD}> </Text>
+    </Box>
+  ))
+
   return (
     <Box
       flexDirection="column"
       width={geometry.width}
       height={geometry.height}
-      borderStyle="bold"
-      borderColor={WOOD}
-      backgroundColor={PAPER}
+      backgroundColor={WOOD}
     >
-      {rows}
+      {frameRow('frame:top')}
+      {framedRows}
+      {frameRow('frame:bottom')}
     </Box>
   )
 }

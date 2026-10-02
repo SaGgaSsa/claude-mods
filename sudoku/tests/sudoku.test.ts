@@ -1,6 +1,6 @@
 import { expect, mock, test } from 'claude-code/testing'
 import type { FoundElement } from 'claude-code/testing'
-import type { RenderElement } from 'claude-code'
+import type { RenderElement, RenderNode } from 'claude-code'
 
 import type { BoardProps } from '../types'
 import {
@@ -9,7 +9,7 @@ import {
   geometryForPanel,
   pickerHeight,
 } from '../hooks/geometry'
-import { CURSOR, PAPER, WOOD } from '../hooks/palette'
+import { CURSOR, FINE_LINE, PAPER, WOOD } from '../hooks/palette'
 import { conflicts, countSolutions, newGame, setDigit, toGrid } from '../hooks/sudoku'
 
 type RootProps = {
@@ -17,6 +17,7 @@ type RootProps = {
   height?: unknown
   justifyContent?: unknown
   alignItems?: unknown
+  borderStyle?: unknown
 }
 
 const rootProps = (element: RenderElement): RootProps => {
@@ -30,6 +31,21 @@ const boardState = (element: FoundElement | undefined): BoardProps => {
   }
   return element.props.props as BoardProps
 }
+
+const blockFill = /[\u2580\u2584\u258c\u2590\u2598\u259d\u2596\u2597\u259a\u259e\u259b\u259c\u2599\u259f]/
+
+const childrenOf = (node: RenderNode): RenderNode[] => {
+  if (typeof node === 'string' || !('children' in node)) return []
+  return node.children ?? []
+}
+
+const propsOf = (node: RenderNode): Record<string, unknown> | null => {
+  if (typeof node === 'string' || !('props' in node) || !node.props) return null
+  return node.props as Record<string, unknown>
+}
+
+const textOf = (node: RenderNode): string =>
+  typeof node === 'string' ? node : childrenOf(node).map(textOf).join('')
 
 const PANE_PROPS = {
   title: 'Sudoku',
@@ -230,6 +246,15 @@ test('the terminal picker supports hotkeys, arrows, Enter and row clicks', async
 
   let ui: Ui = await mount()
   expect(await ui.find({ key: 'picker' })).toBeDefined()
+  const pickerRoot = rootProps(await ui.drawn({ in: 'picker' }))
+  expect(pickerRoot.borderStyle).toBeUndefined()
+  const pickerTexts = await ui.findAll({ type: 'Text', in: 'picker' })
+  expect(pickerTexts[0]?.props.backgroundColor).toBe(WOOD)
+  expect(pickerTexts[0]?.text).toHaveLength(geometryForPanel(48, 22).width)
+  const pickerBottom = pickerTexts[pickerTexts.length - 1]
+  expect(pickerBottom?.props.backgroundColor).toBe(WOOD)
+  expect(pickerBottom?.text).toHaveLength(geometryForPanel(48, 22).width)
+  expect(pickerTexts.some(text => blockFill.test(text.text))).toBe(false)
   expect((await ui.find({ type: 'Text', text: /m  Medium/, in: 'picker' }))?.props.backgroundColor)
     .toBe('#e2a93b')
   expect(rootProps(await ui.drawn()).height).toBe(22)
@@ -329,6 +354,15 @@ test('geometry scales the board, fills highlights and maps clicks to nearby cell
   const drawnRoot = rootProps(await ui.drawn({ in: 'board' }))
   expect(drawnRoot.width).toBe(geometry.width)
   expect(drawnRoot.height).toBe(geometry.height)
+  expect(drawnRoot.borderStyle).toBeUndefined()
+  const scaleOneTexts = await ui.findAll({ type: 'Text', in: 'board' })
+  expect(scaleOneTexts.every(text => typeof text.props.backgroundColor === 'string')).toBe(true)
+  expect(scaleOneTexts.some(text => blockFill.test(text.text))).toBe(false)
+  expect(scaleOneTexts[0]?.props.backgroundColor).toBe(WOOD)
+  expect(scaleOneTexts[0]?.text).toHaveLength(geometry.width)
+  const scaleOneBottom = scaleOneTexts[scaleOneTexts.length - 1]
+  expect(scaleOneBottom?.props.backgroundColor).toBe(WOOD)
+  expect(scaleOneBottom?.text).toHaveLength(geometry.width)
 
   const emptyIndex = [...state.board].findIndex((digit, index) =>
     digit === '0' && Math.floor(index / 9) < 8 && index % 9 < 8,
@@ -343,16 +377,6 @@ test('geometry scales the board, fills highlights and maps clicks to nearby cell
   })
   state = boardState(await ui.find({ key: 'board' }))
   expect(state.cursor).toBe(emptyIndex)
-
-  const spans = await ui.findAll({ type: 'Text', in: 'board' })
-  expect(spans.some(span =>
-    /[▀▄]/.test(span.text) && span.props.color === CURSOR &&
-      (span.props.backgroundColor === PAPER || span.props.backgroundColor === WOOD),
-  )).toBe(true)
-  expect(spans.some(span =>
-    /[▌▐]/.test(span.text) && span.props.color === CURSOR &&
-      span.props.backgroundColor === PAPER,
-  )).toBe(true)
 
   const selectAt = async (x: number, y: number, index: number) => {
     expect(geometry.cellAt(x, y)).toBe(index)
@@ -402,6 +426,55 @@ test('geometry scales the board, fills highlights and maps clicks to nearby cell
   state = boardState(await ui.find({ key: 'board' }))
   geometry = geometryAtScale(state.geometry.scale)
   expect(state.geometry.scale).toBe(2)
+  const largeClient = await ui.find({ key: 'board' })
+  expect(largeClient?.props.width).toBe(geometry.width)
+  expect(largeClient?.props.height).toBe(geometry.height)
+  const largeRoot = rootProps(await ui.drawn({ in: 'board' }))
+  expect(largeRoot.width).toBe(geometry.width)
+  expect(largeRoot.height).toBe(geometry.height)
+  expect(largeRoot.borderStyle).toBeUndefined()
+
+  const selectedPosition = geometry.cellPosition(1, 1)
+  await selectAt(
+    selectedPosition.x + Math.floor(geometry.cellWidth / 2),
+    selectedPosition.y + Math.floor(geometry.cellHeight / 2),
+    10,
+  )
+  const largeTexts = await ui.findAll({ type: 'Text', in: 'board' })
+  expect(largeTexts.every(text => typeof text.props.backgroundColor === 'string')).toBe(true)
+  expect(largeTexts.some(text => blockFill.test(text.text))).toBe(false)
+  expect(largeTexts[0]?.props.backgroundColor).toBe(WOOD)
+  expect(largeTexts[0]?.text).toHaveLength(geometry.width)
+  const largeBottom = largeTexts[largeTexts.length - 1]
+  expect(largeBottom?.props.backgroundColor).toBe(WOOD)
+  expect(largeBottom?.text).toHaveLength(geometry.width)
+
+  const boardTree = await ui.drawn({ in: 'board' })
+  const gridRows = childrenOf(boardTree).slice(1, -1)
+  const lineSpans = (row: number) => {
+    const framedRow = gridRows[row]
+    if (!framedRow) return []
+    const innerRow = childrenOf(framedRow)[1]
+    return innerRow ? childrenOf(innerRow) : []
+  }
+  const cursorWidthAt = (row: number) => lineSpans(row).reduce((width, span) => {
+    return propsOf(span)?.backgroundColor === CURSOR ? width + textOf(span).length : width
+  }, 0)
+  const selectedTop = selectedPosition.y - 1
+  for (let row = selectedTop; row < selectedTop + geometry.cellHeight; row++) {
+    expect(cursorWidthAt(row)).toBe(geometry.cellWidth)
+  }
+
+  const hasFineLineAt = (row: number, character: string) => lineSpans(row).some(span => {
+    const props = propsOf(span)
+    return textOf(span).includes(character) && props?.color === FINE_LINE &&
+      props.backgroundColor === PAPER
+  })
+  expect(hasFineLineAt(selectedTop - 1, '─')).toBe(true)
+  expect(hasFineLineAt(selectedTop + geometry.cellHeight, '─')).toBe(true)
+  expect(hasFineLineAt(selectedTop, '│')).toBe(true)
+  expect(hasFineLineAt(selectedTop + geometry.cellHeight - 1, '│')).toBe(true)
+
   const secondFineLine = geometry.cellPosition(0, 4).x + geometry.cellWidth
   await selectAt(secondFineLine, geometry.cellPosition(0, 4).y + 1, 5)
   const secondBlockLine = geometry.cellPosition(3, 2).x + geometry.cellWidth

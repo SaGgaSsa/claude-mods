@@ -81,30 +81,47 @@ const Picker: ClientModule<PickerProps, PickerState> = (props, surface) => {
     <Text color={FINE_LINE} backgroundColor={PAPER}>{'─'.repeat(innerWidth)}</Text>
   )
 
+  const rows = [
+    <Text key="title" bold color={WOOD} backgroundColor={PAPER}>
+      {centeredText('Choose a difficulty')}
+    </Text>,
+    separator(),
+    row(0, DIFFICULTIES[0]!.key, DIFFICULTIES[0]!.label, DIFFICULTIES[0]!.givens),
+    separator(),
+    row(1, DIFFICULTIES[1]!.key, DIFFICULTIES[1]!.label, DIFFICULTIES[1]!.givens),
+    separator(),
+    row(2, DIFFICULTIES[2]!.key, DIFFICULTIES[2]!.label, DIFFICULTIES[2]!.givens),
+  ]
+  if (props.hasGame) {
+    rows.push(separator(), row(cancelIndex, 'c', 'Cancel'))
+  }
+
+  const frameRow = (key: string) => (
+    <Text key={key} color={WOOD} backgroundColor={WOOD}>
+      {' '.repeat(cardWidth)}
+    </Text>
+  )
+
+  const framedRows = rows.map((content, index) => (
+    <Box key={`framed:${index}`} flexDirection="row" backgroundColor={WOOD}>
+      <Text color={WOOD} backgroundColor={WOOD}> </Text>
+      <Box flexDirection="row" width={innerWidth} backgroundColor={PAPER}>
+        {content}
+      </Box>
+      <Text color={WOOD} backgroundColor={WOOD}> </Text>
+    </Box>
+  ))
+
   return (
     <Box
       flexDirection="column"
       width={cardWidth}
       height={cardHeight}
-      borderStyle="bold"
-      borderColor={WOOD}
-      backgroundColor={PAPER}
+      backgroundColor={WOOD}
     >
-      <Text bold color={WOOD} backgroundColor={PAPER}>
-        {centeredText('Choose a difficulty')}
-      </Text>
-      {separator()}
-      {row(0, DIFFICULTIES[0]!.key, DIFFICULTIES[0]!.label, DIFFICULTIES[0]!.givens)}
-      {separator()}
-      {row(1, DIFFICULTIES[1]!.key, DIFFICULTIES[1]!.label, DIFFICULTIES[1]!.givens)}
-      {separator()}
-      {row(2, DIFFICULTIES[2]!.key, DIFFICULTIES[2]!.label, DIFFICULTIES[2]!.givens)}
-      {props.hasGame && (
-        <>
-          {separator()}
-          {row(cancelIndex, 'c', 'Cancel')}
-        </>
-      )}
+      {frameRow('frame:top')}
+      {framedRows}
+      {frameRow('frame:bottom')}
     </Box>
   )
 }
