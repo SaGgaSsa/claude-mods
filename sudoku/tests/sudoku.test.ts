@@ -11,7 +11,7 @@ import {
   geometryForPanel,
   pickerHeight,
 } from '../hooks/geometry'
-import { CLASH_BACKGROUND, CURSOR, FINE_LINE, PAPER, WOOD } from '../hooks/palette'
+import { CLASH_BACKGROUND, CURSOR, MATCH, PAPER, PAPER_ALT, WOOD } from '../hooks/palette'
 import { conflicts, countSolutions, newGame, setDigit, toGrid } from '../hooks/sudoku'
 import { focusTarget, scrollPlan } from '../hooks/register'
 
@@ -87,13 +87,6 @@ const canvasOf = (tree: RenderElement): DrawnCell[][] => childrenOf(tree).map(ro
   })
 })
 
-const crossCharacter = (horizontalHeavy: boolean, verticalHeavy: boolean): string => {
-  if (horizontalHeavy && verticalHeavy) return '\u254b'
-  if (horizontalHeavy) return '\u253f'
-  if (verticalHeavy) return '\u2542'
-  return '\u253c'
-}
-
 const expectBoardGrid = (
   grid: DrawnCell[][],
   state: BoardProps,
@@ -103,46 +96,33 @@ const expectBoardGrid = (
   expect(grid.every(row => row.length === geometry.width)).toBe(true)
   expect(grid[0]!.every(cell => cell.backgroundColor === WOOD)).toBe(true)
   expect(grid[geometry.height - 1]!.every(cell => cell.backgroundColor === WOOD)).toBe(true)
+  expect(grid.every(row => row[0]!.backgroundColor === WOOD)).toBe(true)
+  expect(grid.every(row => row[geometry.width - 1]!.backgroundColor === WOOD)).toBe(true)
   expect(grid.some(row => row.some(cell => blockFill.test(cell.character)))).toBe(false)
+  const lineCharacter = /[\u2500\u2502\u253c\u2501\u2503\u254b\u253f\u2542]/
+  expect(grid.slice(1, -1).every(row => row.slice(1, -1).every(cell =>
+    !lineCharacter.test(cell.character),
+  ))).toBe(true)
 
   for (let index = 0; index < 81; index++) {
     const digit = state.board[index]!
-    if (digit === '0') continue
-    const position = geometry.cellPosition(Math.floor(index / 9), index % 9)
+    const row = Math.floor(index / 9)
+    const col = index % 9
+    const position = geometry.cellPosition(row, col)
     const centerX = position.x + Math.floor(geometry.cellWidth / 2)
     const centerY = position.y + Math.floor(geometry.cellHeight / 2)
-    expect(grid[centerY]![centerX]!.character).toBe(digit)
-  }
+    if (digit !== '0') expect(grid[centerY]![centerX]!.character).toBe(digit)
 
-  const cursorPosition = geometry.cellPosition(Math.floor(state.cursor / 9), state.cursor % 9)
-  const cursorColor = state.clashes.includes(state.cursor) ? CLASH_BACKGROUND : CURSOR
-  for (let y = 0; y < geometry.height; y++) {
-    for (let x = 0; x < geometry.width; x++) {
-      const inCursor = x >= cursorPosition.x && x < cursorPosition.x + geometry.cellWidth &&
-        y >= cursorPosition.y && y < cursorPosition.y + geometry.cellHeight
-      const backgroundColor = grid[y]![x]!.backgroundColor
-      if (inCursor) expect(backgroundColor).toBe(cursorColor)
-      else expect([CURSOR, CLASH_BACKGROUND].includes(backgroundColor as string)).toBe(false)
-    }
-  }
-
-  const firstY = geometry.cellPosition(0, 0).y
-  const lastCell = geometry.cellPosition(8, 0)
-  const lastY = lastCell.y + geometry.cellHeight - 1
-  for (let col = 0; col < 8; col++) {
-    const verticalHeavy = col % 3 === 2
-    const position = geometry.cellPosition(0, col)
-    const x = position.x + geometry.cellWidth + (verticalHeavy ? 1 : 0)
-    for (let y = firstY; y <= lastY; y++) {
-      const horizontalRow = Array.from({ length: 8 }, (_, row) => row).find(row =>
-        geometry.cellPosition(row, 0).y + geometry.cellHeight === y,
-      )
-      const horizontalHeavy = horizontalRow !== undefined && horizontalRow % 3 === 2
-      const expected = horizontalRow === undefined
-        ? verticalHeavy ? '\u2503' : '\u2502'
-        : crossCharacter(horizontalHeavy, verticalHeavy)
-      expect(grid[y]![x]!.character).toBe(expected)
-      expect(grid[y]![x]!.backgroundColor).toBe(PAPER)
+    const blockBackground = (Math.floor(row / 3) + Math.floor(col / 3)) % 2 === 0
+      ? PAPER
+      : PAPER_ALT
+    const expectedBackground = index === state.cursor
+      ? state.clashes.includes(index) ? CLASH_BACKGROUND : CURSOR
+      : digit !== '0' && digit === state.board[state.cursor] ? MATCH : blockBackground
+    for (let y = position.y; y < position.y + geometry.cellHeight; y++) {
+      for (let x = position.x; x < position.x + geometry.cellWidth; x++) {
+        expect(grid[y]![x]!.backgroundColor).toBe(expectedBackground)
+      }
     }
   }
 }
@@ -456,8 +436,7 @@ test('terminal controls write, clear, show status and open the picker', async ($
   const controlTexts = await ui.findAll({ type: 'Text', in: 'controls' })
   expect(controlTexts.some(text => /[\u2190-\u2193]/.test(text.text))).toBe(false)
   expect(controlsState(await ui.find({ key: 'controls' })).keyboardActive).toBe(false)
-  expect(await ui.find({ type: 'Text', text: /click the board to use the keyboard/, in: 'controls' }))
-    .toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /click (the )?board/, in: 'controls' })).toBeDefined()
 
   const boardProps = boardState(await ui.find({ key: 'board' }))
   const geometry = geometryAtScale(boardProps.geometry.scale)
@@ -474,6 +453,19 @@ test('terminal controls write, clear, show status and open the picker', async ($
   expect(beforeInputGrid[0]!.every(pixel => pixel.backgroundColor === WOOD)).toBe(true)
   expect(beforeInputGrid[controls.height - 1]!.every(pixel => pixel.backgroundColor === WOOD)).toBe(true)
   expect(beforeInputGrid.some(row => row.some(pixel => blockFill.test(pixel.character)))).toBe(false)
+  const lineCharacter = /[\u2500\u2502\u253c\u2501\u2503\u254b\u253f\u2542]/
+  expect(beforeInputGrid.some(row => row.some(pixel => lineCharacter.test(pixel.character)))).toBe(false)
+  for (let row = 0; row < 4; row++) {
+    for (let col = 0; col < 3; col++) {
+      const position = controls.tilePosition(row, col)
+      const expectedBackground = (row + col) % 2 === 0 ? PAPER : PAPER_ALT
+      for (let y = position.y; y < position.y + controls.tileHeight; y++) {
+        for (let x = position.x; x < position.x + controls.tileWidth; x++) {
+          expect(beforeInputGrid[y]![x]!.backgroundColor).toBe(expectedBackground)
+        }
+      }
+    }
+  }
   const cell = geometry.cellPosition(Math.floor(pair[1]! / 9), pair[1]! % 9)
   await ui.pointer({
     type: 'down',
@@ -482,12 +474,14 @@ test('terminal controls write, clear, show status and open the picker', async ($
     button: 'left',
     in: 'board',
   })
-  expect(controlsState(await ui.find({ key: 'controls' })).keyboardActive).toBe(true)
-  expect(await ui.find({ type: 'Text', text: /click the board to use the keyboard/, in: 'controls' }))
+  if (!controlsState(await ui.find({ key: 'controls' })).keyboardActive) {
+    throw new Error('Board click did not activate keyboard status')
+  }
+  expect(await ui.find({ type: 'Text', text: /click (the )?board/, in: 'controls' }))
     .toBeUndefined()
 
-  const fiveX = controls.keypadX + controls.tileWidth + 1 + Math.floor(controls.tileWidth / 2)
-  const fiveY = controls.keypadY + controls.tileHeight + 1 + Math.floor(controls.tileHeight / 2)
+  const fiveX = controls.keypadX + controls.tileWidth + Math.floor(controls.tileWidth / 2)
+  const fiveY = controls.keypadY + controls.tileHeight + Math.floor(controls.tileHeight / 2)
   await ui.pointer({ type: 'down', x: fiveX, y: fiveY, button: 'left', in: 'controls' })
   let changed = boardState(await ui.find({ key: 'board' }))
   expect(changed.board[pair[1]!]).toBe('5')
@@ -498,10 +492,11 @@ test('terminal controls write, clear, show status and open the picker', async ($
   expect(controlsProps.clashes).toBe(conflicts(changed.board).size)
   expect((await ui.find({ type: 'Text', text: /Medium/, in: 'controls' }))).toBeDefined()
   expect((await ui.find({ type: 'Text', text: /\d+\/81 filled/, in: 'controls' }))).toBeDefined()
-  expect((await ui.find({ type: 'Text', text: /in conflict/, in: 'controls' }))).toBeDefined()
   const highlights = await ui.findAll({ type: 'Text', in: 'controls' })
-  expect(highlights.some(text => text.props.backgroundColor === CURSOR && text.text.includes('5')))
-    .toBe(true)
+  expect(highlights.map(text => text.text).join(' ')).toContain('in conflict')
+  if (!highlights.some(text => text.props.backgroundColor === CURSOR && text.text.includes('5'))) {
+    throw new Error(`Selected 5 is not highlighted: ${highlights.map(text => text.text).join('|')}`)
+  }
   const selectedControlsGrid = canvasOf(await ui.drawn({ in: 'controls' }))
   const fivePosition = controls.tilePosition(1, 1)
   for (let y = fivePosition.y; y < fivePosition.y + controls.tileHeight; y++) {
@@ -526,7 +521,7 @@ test('terminal controls write, clear, show status and open the picker', async ($
   const leftMargin = controls.keypadX - 1
   const rightMargin = controls.width - 1 - (controls.keypadX + controls.keypadWidth)
   expect(Math.abs(leftMargin - rightMargin)).toBeLessThanOrEqual(1)
-  expect(controls.keypadWidth).toBe(controls.tileWidth * 3 + 2)
+  expect(controls.keypadWidth).toBe(controls.tileWidth * 3)
 
   const digitPositions = [
     [7, 0, 0], [8, 0, 1], [9, 0, 2],
@@ -546,10 +541,11 @@ test('terminal controls write, clear, show status and open the picker', async ($
     expect(keypadGrid[centerY]![centerX]!.character).toBe(String(digit))
     for (let y = tileY; y < tileY + controls.tileHeight; y++) {
       for (let x = tileX; x < tileX + controls.tileWidth; x++) {
-        expect(keypadGrid[y]![x]!.backgroundColor).toBe(PAPER)
+        const tileBackground = (row + col) % 2 === 0 ? PAPER : PAPER_ALT
+        expect(keypadGrid[y]![x]!.backgroundColor).toBe(tileBackground)
       }
     }
-    for (const x of [tileX + Math.floor(controls.tileWidth / 2), tileX + controls.tileWidth - 1]) {
+    for (const x of [tileX, tileX + Math.floor(controls.tileWidth / 2), tileX + controls.tileWidth - 1]) {
       await ui.pointer({
         type: 'down',
         x,
@@ -566,16 +562,6 @@ test('terminal controls write, clear, show status and open the picker', async ($
         in: 'controls',
       })
       expect(boardState(await ui.find({ key: 'board' })).board[pair[1]!]).toBe('0')
-    }
-  }
-  const verticalSeparators = [
-    controls.keypadX + controls.tileWidth,
-    controls.keypadX + controls.tileWidth * 2 + 1,
-  ]
-  for (const x of verticalSeparators) {
-    for (let y = controls.keypadY; y <= controls.keypadRuleY(2); y++) {
-      const isRule = [0, 1, 2].some(row => controls.keypadRuleY(row) === y)
-      expect(keypadGrid[y]![x]!.character).toBe(isRule ? '\u253c' : '\u2502')
     }
   }
 
@@ -639,7 +625,7 @@ test('focus routing preserves engine stops and keyboard scroll distinguishes the
 test('geometry scales the board, fills highlights and maps clicks to nearby cells', async ($, on) => {
   const cases = [
     { columns: 44, rows: 30, scale: 1 },
-    { columns: 80, rows: 50, scale: 2 },
+    { columns: 80, rows: 50, scale: 3 },
     { columns: 120, rows: 75, scale: 3 },
     { columns: 20, rows: 15, scale: 1 },
   ] as const
@@ -648,12 +634,17 @@ test('geometry scales the board, fills highlights and maps clicks to nearby cell
     const chosen = geometryForPanel(panel.columns, panel.rows)
     expect(chosen.scale).toBe(panel.scale)
     expect(chosen.cellWidth).toBe(2 * chosen.cellHeight + 1)
+    expect(chosen.cellHeight % 2).toBe(1)
+    expect(chosen.width).toBe(9 * chosen.cellWidth + 2)
+    expect(chosen.height).toBe(9 * chosen.cellHeight + 2)
     const chosenFits = chosen.width <= panel.columns && boardContentHeight(chosen) <= panel.rows
-    expect(chosenFits).toBe(panel.columns >= chosen.width && panel.rows >= boardContentHeight(chosen))
+    if (chosen.scale > 1) expect(chosenFits).toBe(true)
 
-    const larger = geometryAtScale(panel.scale + 1)
+    const larger = geometryAtScale(panel.scale + 2)
     expect(larger.width > panel.columns || boardContentHeight(larger) > panel.rows).toBe(true)
   }
+  expect(geometryAtScale(2).scale).toBe(1)
+  expect(geometryAtScale(4).scale).toBe(3)
   expect(pickerHeight(3)).toBe(9)
   expect(pickerHeight(4)).toBe(11)
 
@@ -738,26 +729,34 @@ test('geometry scales the board, fills highlights and maps clicks to nearby cell
   await selectAt(fineLineX + 1, middleY, 1)
 
   const blockCell = geometry.cellPosition(0, 2)
-  const blockLineX = blockCell.x + geometry.cellWidth
-  await selectAt(blockLineX, middleY, 2)
-  await selectAt(blockLineX + 1, middleY, 3)
-  await selectAt(blockLineX + 2, middleY, 3)
+  const blockEdgeX = blockCell.x + geometry.cellWidth - 1
+  await selectAt(blockEdgeX, middleY, 2)
+  await selectAt(blockEdgeX + 1, middleY, 3)
 
-  const rowLineY = firstCell.y + geometry.cellHeight
+  const rowEdgeY = firstCell.y + geometry.cellHeight - 1
   const colCenter = geometry.cellPosition(0, 4).x + Math.floor(geometry.cellWidth / 2)
-  await selectAt(colCenter, rowLineY - 1, 4)
-  await selectAt(colCenter, rowLineY, 13)
-  await selectAt(colCenter, rowLineY + 1, 13)
+  await selectAt(colCenter, rowEdgeY, 4)
+  await selectAt(colCenter, rowEdgeY + 1, 13)
 
-  const thickRowLineY = geometry.cellPosition(2, 0).y + geometry.cellHeight
-  await selectAt(colCenter, thickRowLineY, 31)
+  const blockEdgeY = geometry.cellPosition(2, 0).y + geometry.cellHeight - 1
+  await selectAt(colCenter, blockEdgeY, 22)
+  await selectAt(colCenter, blockEdgeY + 1, 31)
 
   const beforeOutsideClick = boardState(await ui.find({ key: 'board' })).cursor
   expect(geometry.cellAt(geometry.width, middleY)).toBeNull()
+  expect(geometry.cellAt(middleY, geometry.height)).toBeNull()
   await ui.pointer({
     type: 'down',
     x: geometry.width,
     y: middleY,
+    button: 'left',
+    in: 'board',
+  })
+  expect(boardState(await ui.find({ key: 'board' })).cursor).toBe(beforeOutsideClick)
+  await ui.pointer({
+    type: 'down',
+    x: middleY,
+    y: geometry.height,
     button: 'left',
     in: 'board',
   })
@@ -767,12 +766,12 @@ test('geometry scales the board, fills highlights and maps clicks to nearby cell
   ui = await mount(80, 50)
   state = boardState(await ui.find({ key: 'board' }))
   geometry = geometryAtScale(state.geometry.scale)
-  expect(state.geometry.scale).toBe(2)
+  expect(state.geometry.scale).toBe(3)
   const panelRoot = rootProps(await ui.drawn())
   expect(panelRoot.backgroundColor).toBe(PAPER)
   expect(panelRoot.width).toBe(80)
   expect(panelRoot.height).toBe(50)
-  expect(panelRoot.justifyContent).toBe('center')
+  expect(panelRoot.justifyContent).toBeUndefined()
   expect(panelRoot.alignItems).toBe('center')
   const largeClient = await ui.find({ key: 'board' })
   expect(largeClient?.props.width).toBe(geometry.width)
@@ -796,9 +795,15 @@ test('geometry scales the board, fills highlights and maps clicks to nearby cell
   expectBoardGrid(largeGrid, boardState(await ui.find({ key: 'board' })), geometry)
 
   const secondFineLine = geometry.cellPosition(0, 4).x + geometry.cellWidth
+  await selectAt(secondFineLine - 1, geometry.cellPosition(0, 4).y + 1, 4)
   await selectAt(secondFineLine, geometry.cellPosition(0, 4).y + 1, 5)
-  const secondBlockLine = geometry.cellPosition(3, 2).x + geometry.cellWidth
-  await selectAt(secondBlockLine, geometry.cellPosition(3, 2).y + 1, 29)
+  const secondBlockEdge = geometry.cellPosition(3, 2).x + geometry.cellWidth - 1
+  await selectAt(secondBlockEdge, geometry.cellPosition(3, 2).y + 1, 29)
+  await selectAt(secondBlockEdge + 1, geometry.cellPosition(3, 2).y + 1, 30)
+  const horizontalEdge = geometry.cellPosition(4, 5).y + geometry.cellHeight - 1
+  const horizontalCol = geometry.cellPosition(0, 5).x + Math.floor(geometry.cellWidth / 2)
+  await selectAt(horizontalCol, horizontalEdge, 41)
+  await selectAt(horizontalCol, horizontalEdge + 1, 50)
   await ui.unmount()
 
   ui = await mount(120, 75)

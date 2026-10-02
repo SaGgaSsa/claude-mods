@@ -24,14 +24,12 @@ export type ControlsGeometry = {
   tileHeight: number
   statusY: number
   hintY: number
-  statusRuleY: number
+  statusBandY: number
   keypadX: number
   keypadWidth: number
   keypadY: number
   clearY: number
   newY: number
-  newRuleY: number
-  keypadRuleY: (row: number) => number
   tilePosition: (row: number, col: number) => { x: number; y: number }
   actionAt: (x: number, y: number) => ControlsAction | null
 }
@@ -40,47 +38,25 @@ const FRAME = 1
 const FOOTER_GAP = 1
 
 export const geometryAtScale = (requestedScale: number): BoardGeometry => {
-  const scale = Math.max(1, Math.floor(requestedScale))
+  const roundedScale = Math.max(1, Math.floor(requestedScale))
+  const scale = roundedScale % 2 === 0 ? roundedScale - 1 : roundedScale
   const cellHeight = scale
-  const cellWidth = 2 * scale + 1
-  const blockWidth = 3 * cellWidth + 2
-  const innerWidth = 3 * blockWidth + 6
-  const innerHeight = 9 * cellHeight + 8
+  const cellWidth = 2 * cellHeight + 1
+  const innerWidth = 9 * cellWidth
+  const innerHeight = 9 * cellHeight
   const width = innerWidth + FRAME * 2
   const height = innerHeight + FRAME * 2
 
   const cellPosition = (row: number, col: number) => ({
-    x: FRAME + Math.floor(col / 3) * (blockWidth + 3) + (col % 3) * (cellWidth + 1),
-    y: FRAME + row * (cellHeight + 1),
+    x: FRAME + col * cellWidth,
+    y: FRAME + row * cellHeight,
   })
 
   const cellAt = (x: number, y: number): number | null => {
     if (x < 0 || y < 0 || x >= width || y >= height) return null
-
-    let nearestRow = 0
-    let nearestCol = 0
-    let rowDistance = Number.POSITIVE_INFINITY
-    let colDistance = Number.POSITIVE_INFINITY
-
-    for (let row = 0; row < 9; row++) {
-      const center = cellPosition(row, 0).y + Math.floor(cellHeight / 2)
-      const distance = Math.abs(y - center)
-      if (distance <= rowDistance) {
-        nearestRow = row
-        rowDistance = distance
-      }
-    }
-
-    for (let col = 0; col < 9; col++) {
-      const center = cellPosition(0, col).x + Math.floor(cellWidth / 2)
-      const distance = Math.abs(x - center)
-      if (distance <= colDistance) {
-        nearestCol = col
-        colDistance = distance
-      }
-    }
-
-    return nearestRow * 9 + nearestCol
+    const col = Math.max(0, Math.min(8, Math.floor((x - FRAME) / cellWidth)))
+    const row = Math.max(0, Math.min(8, Math.floor((y - FRAME) / cellHeight)))
+    return row * 9 + col
   }
 
   const pickerTitleY = FRAME
@@ -126,20 +102,18 @@ export const controlsGeometry = (board: GeometryProps): ControlsGeometry => {
   const height = controlsHeight(board.scale)
   const innerWidth = width - FRAME * 2
   const innerHeight = height - FRAME * 2
-  const keypadWidth = tileWidth * 3 + 2
+  const keypadWidth = tileWidth * 3
   const statusY = FRAME
   const hintY = FRAME + 1
-  const statusRuleY = FRAME + 2
+  const statusBandY = FRAME + 2
   const keypadX = FRAME + Math.floor((innerWidth - keypadWidth) / 2)
-  const keypadY = statusRuleY + 1
+  const keypadY = statusBandY + 1
   const tilePosition = (row: number, col: number) => ({
-    x: keypadX + col * (tileWidth + 1),
-    y: keypadY + row * (tileHeight + 1),
+    x: keypadX + col * tileWidth,
+    y: keypadY + row * tileHeight,
   })
-  const newY = keypadY + tileHeight * 4 + 4
-  const newRuleY = newY - 1
-  const keypadRuleY = (row: number) => tilePosition(row, 0).y + tileHeight
   const clearY = tilePosition(3, 0).y
+  const newY = keypadY + tileHeight * 4
 
   const actionAt = (x: number, y: number): ControlsAction | null => {
     if (x < 0 || y < 0 || x >= width || y >= height) return null
@@ -152,28 +126,10 @@ export const controlsGeometry = (board: GeometryProps): ControlsGeometry => {
       return null
     }
 
-    let row = 0
-    let rowDistance = Number.POSITIVE_INFINITY
-    for (let candidate = 0; candidate < 4; candidate++) {
-      const center = tilePosition(candidate, 0).y + Math.floor(tileHeight / 2)
-      const distance = Math.abs(y - center)
-      if (distance <= rowDistance) {
-        row = candidate
-        rowDistance = distance
-      }
-    }
+    const row = Math.floor((y - keypadY) / tileHeight)
     if (row === 3) return { type: 'digit', digit: 0, key: 'digit:0' }
 
-    let col = 0
-    let colDistance = Number.POSITIVE_INFINITY
-    for (let candidate = 0; candidate < 3; candidate++) {
-      const center = tilePosition(0, candidate).x + Math.floor(tileWidth / 2)
-      const distance = Math.abs(x - center)
-      if (distance <= colDistance) {
-        col = candidate
-        colDistance = distance
-      }
-    }
+    const col = Math.floor((x - keypadX) / tileWidth)
     const digits = [
       [7, 8, 9],
       [4, 5, 6],
@@ -192,34 +148,35 @@ export const controlsGeometry = (board: GeometryProps): ControlsGeometry => {
     tileHeight,
     statusY,
     hintY,
-    statusRuleY,
+    statusBandY,
     keypadX,
     keypadWidth,
     keypadY,
     clearY,
     newY,
-    newRuleY,
-    keypadRuleY,
     tilePosition,
     actionAt,
   }
 }
 
-export const controlsHeight = (scale: number): number => 5 * Math.max(1, Math.floor(scale)) + 9
+export const controlsHeight = (scale: number): number => 5 * Math.max(1, Math.floor(scale)) + 5
 
 export const geometryForPanel = (bodyColumns: number, bodyRows?: number): GeometryProps => {
-  const widthScale = Math.floor((bodyColumns - 23) / 18)
-  const heightScale = typeof bodyRows === 'number'
-    ? Math.floor((bodyRows - 20) / 14)
-    : Number.POSITIVE_INFINITY
-  const geometry = geometryAtScale(Math.max(1, Math.min(widthScale, heightScale)))
+  let chosen = geometryAtScale(1)
+
+  for (let scale = 3; ; scale += 2) {
+    const candidate = geometryAtScale(scale)
+    if (candidate.width > bodyColumns) break
+    if (typeof bodyRows === 'number' && boardContentHeight(candidate) > bodyRows) break
+    chosen = candidate
+  }
 
   return {
-    scale: geometry.scale,
-    cellWidth: geometry.cellWidth,
-    cellHeight: geometry.cellHeight,
-    width: geometry.width,
-    height: geometry.height,
+    scale: chosen.scale,
+    cellWidth: chosen.cellWidth,
+    cellHeight: chosen.cellHeight,
+    width: chosen.width,
+    height: chosen.height,
   }
 }
 

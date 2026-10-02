@@ -6,13 +6,11 @@ import {
   createCanvas,
   drawFrame,
   fillRect,
-  horizontalLine,
   setCell,
   toElement,
-  verticalLine,
   writeCentered,
 } from './canvas'
-import { CLASH, CURSOR, FINE_LINE, GIVEN, PAPER, PLAYER, WOOD } from './palette'
+import { CLASH, CURSOR, GIVEN, PAPER, PAPER_ALT, PLAYER, WOOD } from './palette'
 
 type ControlsState = { selected: string | null }
 type StatusSegment = { text: string; color: string; bold?: boolean }
@@ -75,44 +73,96 @@ const Controls: ClientModule<ControlsProps, ControlsState> = (props, surface) =>
     : [
         { text: `${props.difficulty[0]!.toUpperCase()}${props.difficulty.slice(1)}`, color: WOOD },
         { text: ` \u00b7 ${props.filled}/81 filled`, color: PLAYER },
-        ...(props.clashes > 0
-          ? [{ text: ` \u00b7 ${props.clashes} in conflict`, color: CLASH }]
-          : []),
       ]
-  const statusWidth = statusSegments.reduce((width, segment) => width + segment.text.length, 0)
-  let statusX = 1 + Math.floor((innerWidth - statusWidth) / 2)
-  for (const segment of statusSegments) {
-    for (let index = 0; index < segment.text.length; index++) {
-      setCell(canvas, statusX + index, layout.statusY, {
-        character: segment.text[index]!,
-        color: segment.color,
-        backgroundColor: PAPER,
-        bold: segment.bold ?? false,
-      })
+  const conflictSegment: StatusSegment[] = props.clashes > 0
+    ? [{ text: ` \u00b7 ${props.clashes} in conflict`, color: CLASH }]
+    : []
+  const fullStatus = [...statusSegments, ...conflictSegment]
+  const fullStatusWidth = fullStatus.reduce((width, segment) => width + segment.text.length, 0)
+  const extraStatus = fullStatusWidth > innerWidth ? conflictSegment : []
+  const visibleStatus = extraStatus.length > 0 ? statusSegments : fullStatus
+
+  const writeSegments = (segments: StatusSegment[], y: number) => {
+    const textWidth = segments.reduce((width, segment) => width + segment.text.length, 0)
+    let x = 1 + Math.floor((innerWidth - textWidth) / 2)
+    for (const segment of segments) {
+      for (let index = 0; index < segment.text.length; index++) {
+        setCell(canvas, x + index, y, {
+          character: segment.text[index]!,
+          color: segment.color,
+          backgroundColor: PAPER,
+          bold: segment.bold ?? false,
+        })
+      }
+      x += segment.text.length
     }
-    statusX += segment.text.length
   }
 
-  if (!props.keyboardActive) {
-    writeCentered(
-      canvas,
-      'click the board to use the keyboard',
-      1,
-      layout.hintY,
-      innerWidth,
-      1,
-      WOOD,
-      PAPER,
-    )
+  writeSegments(visibleStatus, layout.statusY)
+  const keyboardHint = 'click the board to use the keyboard'
+  let hintOnThirdLine = false
+  if (extraStatus.length > 0) {
+    writeSegments(extraStatus, layout.hintY)
+    if (!props.keyboardActive) {
+      const compactHint = innerWidth >= keyboardHint.length
+        ? keyboardHint
+        : 'click board to use keyboard'
+      writeCentered(canvas, compactHint, 1, layout.statusBandY, innerWidth, 1, WOOD, PAPER)
+      hintOnThirdLine = true
+    }
+  } else if (!props.keyboardActive) {
+    if (keyboardHint.length > innerWidth) {
+      writeCentered(canvas, 'click the board', 1, layout.hintY, innerWidth, 1, WOOD, PAPER)
+      writeCentered(
+        canvas,
+        'to use the keyboard',
+        1,
+        layout.statusBandY,
+        innerWidth,
+        1,
+        WOOD,
+        PAPER,
+      )
+      hintOnThirdLine = true
+    } else {
+      writeCentered(canvas, keyboardHint, 1, layout.hintY, innerWidth, 1, WOOD, PAPER)
+    }
   }
 
-  horizontalLine(canvas, 1, layout.statusRuleY, innerWidth, '\u2500', FINE_LINE, PAPER)
+  if (!hintOnThirdLine) {
+    fillRect(canvas, 1, layout.statusBandY, innerWidth, 1, PLAYER, PAPER_ALT)
+  }
 
-  const paintTile = (x: number, y: number, width: number, label: string, key: string) => {
-    const backgroundColor = selected === key ? CURSOR : PAPER
+  const paintTile = (row: number, col: number, label: string, key: string) => {
+    const position = layout.tilePosition(row, col)
+    const backgroundColor = selected === key
+      ? CURSOR
+      : (row + col) % 2 === 0 ? PAPER : PAPER_ALT
     const color = selected === key ? GIVEN : PLAYER
-    fillRect(canvas, x, y, width, layout.tileHeight, color, backgroundColor, ' ', true)
-    writeCentered(canvas, label, x, y, width, layout.tileHeight, color, backgroundColor, true)
+    fillRect(
+      canvas,
+      position.x,
+      position.y,
+      layout.tileWidth,
+      layout.tileHeight,
+      color,
+      backgroundColor,
+      ' ',
+      true,
+    )
+    if (label) {
+      writeCentered(
+        canvas,
+        label,
+        position.x,
+        position.y,
+        layout.tileWidth,
+        layout.tileHeight,
+        color,
+        backgroundColor,
+        true,
+      )
+    }
   }
 
   const digits = [
@@ -124,45 +174,43 @@ const Controls: ClientModule<ControlsProps, ControlsState> = (props, surface) =>
   for (let row = 0; row < digits.length; row++) {
     for (let col = 0; col < 3; col++) {
       const digit = digits[row]![col]!
-      const position = layout.tilePosition(row, col)
-      paintTile(position.x, position.y, layout.tileWidth, String(digit), `digit:${digit}`)
+      paintTile(row, col, String(digit), `digit:${digit}`)
     }
   }
 
-  paintTile(layout.keypadX, layout.clearY, layout.keypadWidth, '0 Clear', 'digit:0')
-
-  for (let row = 0; row < 3; row++) {
-    horizontalLine(
-      canvas,
-      layout.keypadX,
-      layout.keypadRuleY(row),
-      layout.keypadWidth,
-      '\u2500',
-      FINE_LINE,
-      PAPER,
-    )
+  for (let col = 0; col < 3; col++) {
+    paintTile(3, col, '', 'digit:0')
   }
 
-  const verticalXs = [
-    layout.keypadX + layout.tileWidth,
-    layout.keypadX + layout.tileWidth * 2 + 1,
-  ]
-  const lastRuleY = layout.clearY - 1
-  for (const x of verticalXs) {
-    verticalLine(canvas, x, layout.keypadY, lastRuleY - layout.keypadY + 1, '\u2502', FINE_LINE, PAPER)
-    for (let row = 0; row < 3; row++) {
-      const y = layout.keypadRuleY(row)
-      setCell(canvas, x, y, {
-        character: '\u253c',
-        color: FINE_LINE,
-        backgroundColor: PAPER,
-        bold: false,
-      })
-    }
+  const clearColor = selected === 'digit:0' ? GIVEN : PLAYER
+  const clearText = '0 Clear'
+  const clearX = layout.keypadX + Math.floor((layout.keypadWidth - clearText.length) / 2)
+  const clearTextY = layout.clearY + Math.floor(layout.tileHeight / 2)
+  for (let index = 0; index < clearText.length; index++) {
+    const x = clearX + index
+    const cell = canvas.cells[clearTextY]![x]!
+    setCell(canvas, x, clearTextY, {
+      ...cell,
+      character: clearText[index]!,
+      color: clearColor,
+      bold: true,
+    })
   }
 
-  horizontalLine(canvas, 1, layout.newRuleY, innerWidth, '\u2500', FINE_LINE, PAPER)
-  paintTile(1, layout.newY, innerWidth, 'New game', 'new')
+  const newBackground = selected === 'new' ? CURSOR : PAPER_ALT
+  const newColor = selected === 'new' ? GIVEN : PLAYER
+  fillRect(canvas, 1, layout.newY, innerWidth, layout.tileHeight, newColor, newBackground, ' ', true)
+  writeCentered(
+    canvas,
+    'New game',
+    1,
+    layout.newY,
+    innerWidth,
+    layout.tileHeight,
+    newColor,
+    newBackground,
+    true,
+  )
 
   return toElement(surface.elements, canvas)
 }

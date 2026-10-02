@@ -27,8 +27,10 @@ export const createCanvas = (columns: number, rows: number, backgroundColor: str
 })
 
 export const setCell = (canvas: Canvas, x: number, y: number, cell: CanvasCell) => {
+  if (!Number.isInteger(x) || !Number.isInteger(y)) return
   if (x < 0 || y < 0 || x >= canvas.columns || y >= canvas.rows) return
-  canvas.cells[y]![x] = cell
+  const row = canvas.cells[y]
+  if (row) row[x] = cell
 }
 
 export const fillRect = (
@@ -93,16 +95,6 @@ export const horizontalLine = (
   color: string,
   backgroundColor: string,
 ) => fillRect(canvas, x, y, width, 1, color, backgroundColor, character)
-
-export const verticalLine = (
-  canvas: Canvas,
-  x: number,
-  y: number,
-  height: number,
-  character: string,
-  color: string,
-  backgroundColor: string,
-) => fillRect(canvas, x, y, 1, height, color, backgroundColor, character)
 
 export const drawFrame = (canvas: Canvas, color: string) => {
   fillRect(canvas, 0, 0, canvas.columns, 1, color)
