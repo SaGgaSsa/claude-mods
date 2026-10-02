@@ -66,6 +66,18 @@ const save = async ($: EngineInterface, next: SudokuGame | null) => {
   await $.store.set(await storeKey($), next)
 }
 
+// Saves written before `difficulty` existed load as medium.
+const loadSaved = async ($: EngineInterface, cwd?: string) => {
+  const key = cwd === undefined ? await storeKey($) : `game:${cwd}`
+  const saved = (await $.store.get(key)) as
+    | (Omit<SudokuGame, 'difficulty'> & { difficulty?: Difficulty })
+    | undefined
+  const loaded = saved ? { ...saved, difficulty: saved.difficulty ?? 'medium' } : null
+  await update($, game, () => loaded)
+  await update($, selectingDifficulty, () => !loaded)
+  return loaded
+}
+
 const change = async ($: EngineInterface, fn: (current: SudokuGame) => SudokuGame) => {
   const next = await update($, game, current => (current ? fn(current) : current))
   await save($, next)
@@ -175,19 +187,14 @@ export const register: Register = on => {
       description: 'Play the sudoku saved for this folder in a pane',
     })
 
-    const saved = (await $.store.get(`game:${e.cwd}`)) as
-      | (Omit<SudokuGame, 'difficulty'> & { difficulty?: Difficulty })
-      | undefined
-    const loaded = saved ? { ...saved, difficulty: saved.difficulty ?? 'medium' } : null
-    await update($, game, () => loaded)
-    await update($, selectingDifficulty, () => !loaded)
-
+    await loadSaved($, e.cwd)
     return next(e)
   })
 
   on('command.run', { command: 'sudoku' }, async $ => {
     await update($, keyboardActive, () => false)
-    if (!(await read($, game))) await showDifficultyPicker($)
+    // `/clear` drops the in-memory state; the folder's game is still in the store.
+    if (!(await read($, game)) && !(await loadSaved($))) await showDifficultyPicker($)
     await openPane($)
 
     return { text: 'Sudoku pane opened.' }

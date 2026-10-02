@@ -299,6 +299,34 @@ test('new game selection can cancel unchanged or start hard', async ($, on) => {
   await ui.unmount()
 })
 
+test('/sudoku reloads the folder game when the session state was cleared', async ($, on) => {
+  const original = newGame('hard')
+  const savedGame = setDigit(original, Number(original.solution[original.cursor]))
+  mock.store(on, { 'game:/work/cleared': savedGame })
+  on('session.cwd', () => ({ value: '/work/cleared' }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+
+  // No session.start: after /clear the atoms are empty but the store still holds the game.
+  await $.command.run({
+    command: 'sudoku',
+    args: '',
+    origin: { kind: 'composer' },
+    presentation: { isFullscreen: false, columns: 120 },
+  })
+
+  const ui = await $.ui.mount({
+    plugin: 'sudoku',
+    surface: 'terminal',
+    component: 'Pane',
+    requestId: 'sudoku',
+    props: PANE_PROPS,
+  })
+  expect(await ui.find({ key: 'picker' })).toBeUndefined()
+  expect(boardState(await ui.find({ key: 'board' })).board).toBe(savedGame.board)
+  expect(controlsState(await ui.find({ key: 'controls' })).difficulty).toBe('hard')
+  await ui.unmount()
+})
+
 test('the terminal picker supports hotkeys, arrows, Enter and row clicks', async ($, on) => {
   let cwd = '/work/a'
   mock.store(on)
