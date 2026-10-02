@@ -66,19 +66,26 @@ const save = async ($: EngineInterface, next: SudokuGame | null) => {
   await $.store.set(await storeKey($), next)
 }
 
-// Saves written before `difficulty` existed load as medium.
-const loadSaved = async ($: EngineInterface, cwd?: string) => {
+// Reads only, so a drawing may call it. Saves written before `difficulty` existed load as medium.
+const savedGame = async ($: EngineInterface, cwd?: string): Promise<SudokuGame | null> => {
   const key = cwd === undefined ? await storeKey($) : `game:${cwd}`
   const saved = (await $.store.get(key)) as
     | (Omit<SudokuGame, 'difficulty'> & { difficulty?: Difficulty })
     | undefined
-  const loaded = saved ? { ...saved, difficulty: saved.difficulty ?? 'medium' } : null
-  await update($, game, () => loaded)
-  await update($, selectingDifficulty, () => !loaded)
-  return loaded
+  return saved ? { ...saved, difficulty: saved.difficulty ?? 'medium' } : null
+}
+
+// `/clear` empties `$.state` without a new `session.start`; the folder's game is still in the store.
+const currentGame = async ($: EngineInterface) => {
+  const live = await read($, game)
+  if (live) return live
+  const saved = await savedGame($)
+  if (saved) await update($, game, () => saved)
+  return saved
 }
 
 const change = async ($: EngineInterface, fn: (current: SudokuGame) => SudokuGame) => {
+  await currentGame($)
   const next = await update($, game, current => (current ? fn(current) : current))
   await save($, next)
   if (next?.isSolved) $.ui.toast('Sudoku solved!')
@@ -158,7 +165,7 @@ const applyControlsMessage = async ($: EngineInterface, message: ControlsMessage
   await update($, keyboardActive, () => true)
 
   if (message.type === 'input' || message.type === 'focus') {
-    const current = await read($, game)
+    const current = await currentGame($)
     if (message.type === 'focus') {
       await $.ui.focus({ requestId: PANE, key: BOARD }).catch(() => undefined)
     }
@@ -187,14 +194,15 @@ export const register: Register = on => {
       description: 'Play the sudoku saved for this folder in a pane',
     })
 
-    await loadSaved($, e.cwd)
+    const loaded = await savedGame($, e.cwd)
+    await update($, game, () => loaded)
+    await update($, selectingDifficulty, () => !loaded)
     return next(e)
   })
 
   on('command.run', { command: 'sudoku' }, async $ => {
     await update($, keyboardActive, () => false)
-    // `/clear` drops the in-memory state; the folder's game is still in the store.
-    if (!(await read($, game)) && !(await loadSaved($))) await showDifficultyPicker($)
+    if (!(await currentGame($))) await showDifficultyPicker($)
     await openPane($)
 
     return { text: 'Sudoku pane opened.' }
@@ -228,7 +236,7 @@ export const register: Register = on => {
       return {}
     }
 
-    const current = await read($, game)
+    const current = await currentGame($)
     const next = message.type === 'input'
       ? current
       : current ? await change($, value => applyMessage(value, message)) : null
@@ -249,7 +257,8 @@ export const register: Register = on => {
     const elements = $.ui.resolve(e)
     const { Box, Text, Button } = elements
     const Client = 'Client' in elements ? elements.Client : undefined
-    const current = await read($, game)
+    // After `/clear` the state is empty until a message rehydrates it; draw the stored game meanwhile.
+    const current = (await read($, game)) ?? await savedGame($)
     const choosingDifficulty = await read($, selectingDifficulty)
     const keyboardUsed = await read($, keyboardActive)
     const bodyRows = e.props.scroll?.bodyRows

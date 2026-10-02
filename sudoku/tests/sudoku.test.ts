@@ -327,6 +327,34 @@ test('/sudoku reloads the folder game when the session state was cleared', async
   await ui.unmount()
 })
 
+test('an open pane keeps the folder game after /clear and saves the next move', async ($, on) => {
+  const saved = newGame('easy')
+  const empty = [...saved.puzzle].findIndex(digit => digit === '0')
+  mock.store(on, { 'game:/work/open': { ...saved, cursor: empty } })
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('session.cwd', () => ({ value: '/work/open' }))
+
+  // The pane stays open across /clear and redraws with empty state; nothing reruns /sudoku.
+  const ui = await $.ui.mount({
+    plugin: 'sudoku',
+    surface: 'terminal',
+    component: 'Pane',
+    requestId: 'sudoku',
+    props: PANE_PROPS,
+  })
+  expect(await ui.find({ key: 'picker' })).toBeUndefined()
+  expect(boardState(await ui.find({ key: 'board' })).board).toBe(saved.board)
+
+  const digit = saved.solution[empty]!
+  await ui.key({ key: digit, in: 'board' })
+  expect(boardState(await ui.find({ key: 'board' })).board[empty]).toBe(digit)
+
+  // A fresh start reads only the store, so the move must have been saved there.
+  await $.session.start({ cwd: '/work/open', surface: 'terminal', isInteractive: true })
+  expect(boardState(await ui.find({ key: 'board' })).board[empty]).toBe(digit)
+  await ui.unmount()
+})
+
 test('the terminal picker supports hotkeys, arrows, Enter and row clicks', async ($, on) => {
   let cwd = '/work/a'
   mock.store(on)
