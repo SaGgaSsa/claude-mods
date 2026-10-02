@@ -21,14 +21,16 @@ pick it up the next time you open Claude Code there.
 
 - Easy, medium and hard difficulty aim for 40, 32 and 26 given numbers; every
   puzzle has a unique solution.
-- Opening `/sudoku` without a saved game, or pressing `n` during a game, shows
-  the difficulty picker (`e`, `m`, `h`). Press `c` to cancel and keep the current
+- Opening `/sudoku` without a saved game, or clicking `New game`, shows the
+  difficulty picker (`e`, `m`, `h`). Press `c` to cancel and keep the current
   game.
-- The status line shows the current difficulty and how many cells are filled.
+- The board scales with the pane. Its controls card shows the difficulty, filled
+  cells and conflicts on the same warm paper and wood colors as the board.
 - Click the board to give it the keyboard: arrows (or `w` `a` `s` `d`) move,
   `1`–`9` write a digit, `0`/Backspace/Delete clear it, Esc hands the keys back.
   While the board has them, no key reaches the prompt.
-- The keypad and arrow buttons under the board work with the mouse too.
+- Click a number tile under the board to enter that digit; click `0 Clear` to
+  erase the selected cell, or `New game` to open the difficulty picker.
 - Givens can't be changed; repeated digits turn red.
 - The board uses a cream background, a brown frame, and warm colors for givens,
   entries, the selected cell and matching digits.

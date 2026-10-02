@@ -45,6 +45,19 @@ export type PickerMessage =
   | { type: 'choose'; difficulty: Difficulty }
   | { type: 'cancel' }
 
+export type ControlsProps = {
+  difficulty: Difficulty
+  filled: number
+  clashes: number
+  isSolved: boolean
+  geometry: GeometryProps
+}
+
+export type ControlsMessage =
+  | { type: 'digit'; digit: number; geometry: GeometryProps }
+  | { type: 'new'; geometry: GeometryProps }
+  | { type: 'focus' }
+
 declare module 'claude-code' {
   interface PluginState {
     sudoku: {

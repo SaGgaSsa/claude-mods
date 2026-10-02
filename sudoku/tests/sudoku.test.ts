@@ -2,15 +2,18 @@ import { expect, mock, test } from 'claude-code/testing'
 import type { FoundElement } from 'claude-code/testing'
 import type { RenderElement, RenderNode } from 'claude-code'
 
-import type { BoardProps } from '../types'
+import type { BoardProps, ControlsProps, GeometryProps } from '../types'
 import {
   boardContentHeight,
+  controlsGeometry,
+  controlsHeight,
   geometryAtScale,
   geometryForPanel,
   pickerHeight,
 } from '../hooks/geometry'
 import { CURSOR, FINE_LINE, PAPER, WOOD } from '../hooks/palette'
 import { conflicts, countSolutions, newGame, setDigit, toGrid } from '../hooks/sudoku'
+import { focusTarget, scrollPlan } from '../hooks/register'
 
 type RootProps = {
   width?: unknown
@@ -18,6 +21,7 @@ type RootProps = {
   justifyContent?: unknown
   alignItems?: unknown
   borderStyle?: unknown
+  backgroundColor?: unknown
 }
 
 const rootProps = (element: RenderElement): RootProps => {
@@ -30,6 +34,24 @@ const boardState = (element: FoundElement | undefined): BoardProps => {
     throw new Error('Expected the board Client props')
   }
   return element.props.props as BoardProps
+}
+
+const controlsState = (element: FoundElement | undefined): ControlsProps => {
+  if (!element || typeof element.props.props !== 'object' || element.props.props === null) {
+    throw new Error('Expected the controls Client props')
+  }
+  return element.props.props as ControlsProps
+}
+
+const newGameClick = (geometry: GeometryProps) => {
+  const controls = controlsGeometry(geometry)
+  return {
+    type: 'down' as const,
+    x: Math.floor(controls.width / 2),
+    y: controls.newY + Math.floor(controls.tileHeight / 2),
+    button: 'left' as const,
+    in: 'controls' as const,
+  }
 }
 
 const blockFill = /[\u2580\u2584\u258c\u2590\u2598\u259d\u2596\u2597\u259a\u259e\u259b\u259c\u2599\u259f]/
@@ -126,9 +148,11 @@ test('the pane selects a difficulty and saves each game per folder', async ($, o
   expect(await ui.find({ key: 'picker' })).toBeDefined()
   expect(rootProps(await ui.drawn()).height).toBe(22)
   expect(rootProps(await ui.drawn()).justifyContent).toBe('center')
+  expect(rootProps(await ui.drawn()).backgroundColor).toBe(PAPER)
   await ui.key({ key: 'm', in: 'picker' })
   expect(await ui.find({ type: 'Text', text: /Click the board/ })).toBeUndefined()
-  expect(rootProps(await ui.drawn()).height).toBeUndefined()
+  expect(rootProps(await ui.drawn()).height).toBe(22)
+  expect(rootProps(await ui.drawn()).width).toBe(48)
   expect(rootProps(await ui.drawn()).justifyContent).toBeUndefined()
 
   let current = boardState(await ui.find({ key: 'board' }))
@@ -155,8 +179,8 @@ test('the pane selects a difficulty and saves each game per folder', async ($, o
   expect(boardState(await ui.find({ key: 'board' })).cursor).toBe(isLastColumn ? empty - 1 : empty + 1)
   await ui.unmount()
 
-  ui = await mount(32)
-  expect(rootProps(await ui.drawn()).height).toBe(32)
+  ui = await mount(55)
+  expect(rootProps(await ui.drawn()).height).toBe(55)
   expect(rootProps(await ui.drawn()).justifyContent).toBe('center')
   expect(rootProps(await ui.drawn()).alignItems).toBe('center')
   await ui.unmount()
@@ -198,7 +222,8 @@ test('new game selection can cancel unchanged or start hard', async ($, on) => {
     requestId: 'sudoku',
     props: PANE_PROPS,
   })
-  await ui.press({ key: 'new' })
+  const geometry = geometryAtScale(boardState(await ui.find({ key: 'board' })).geometry.scale)
+  await ui.pointer(newGameClick(geometry))
   expect(await ui.find({ key: 'picker' })).toBeDefined()
   expect(await ui.find({ type: 'Text', text: /Cancel/, in: 'picker' })).toBeDefined()
   await ui.key({ key: 'c', in: 'picker' })
@@ -206,13 +231,13 @@ test('new game selection can cancel unchanged or start hard', async ($, on) => {
 
   await $.session.start({ cwd: '/work/a', surface: 'terminal', isInteractive: true })
   expect(boardState(await ui.find({ key: 'board' })).board).toBe(originalGame.board)
-  expect(await ui.find({ type: 'Text', text: /Easy/ })).toBeDefined()
+  expect(controlsState(await ui.find({ key: 'controls' })).difficulty).toBe('easy')
 
-  await ui.press({ key: 'new' })
+  await ui.pointer(newGameClick(geometry))
   await ui.key({ key: 'h', in: 'picker' })
-  expect(await ui.find({ type: 'Text', text: /Hard/ })).toBeDefined()
+  expect(controlsState(await ui.find({ key: 'controls' })).difficulty).toBe('hard')
   await $.session.start({ cwd: '/work/a', surface: 'terminal', isInteractive: true })
-  expect(await ui.find({ type: 'Text', text: /Hard/ })).toBeDefined()
+  expect(controlsState(await ui.find({ key: 'controls' })).difficulty).toBe('hard')
   await ui.unmount()
 })
 
@@ -262,44 +287,164 @@ test('the terminal picker supports hotkeys, arrows, Enter and row clicks', async
   await ui.unmount()
 
   ui = await mount(8)
-  expect(rootProps(await ui.drawn()).height).toBeUndefined()
+  expect(rootProps(await ui.drawn()).height).toBe(8)
 
   await ui.key({ key: 'down', in: 'picker' })
   expect((await ui.find({ type: 'Text', text: /h  Hard/, in: 'picker' }))?.props.backgroundColor)
     .toBe('#e2a93b')
   await ui.key({ key: 'return', in: 'picker' })
-  expect(await ui.find({ type: 'Text', text: /Hard/ })).toBeDefined()
+  expect(controlsState(await ui.find({ key: 'controls' })).difficulty).toBe('hard')
   await ui.unmount()
 
   ui = await mount(32)
+  const openPicker = async () => {
+    const board = boardState(await ui.find({ key: 'board' }))
+    await ui.pointer(newGameClick(board.geometry))
+  }
   const choices = [
-    { hotkey: 'e', label: 'Easy', selectedKey: 'h', selectedLabel: 'Hard' },
-    { hotkey: 'm', label: 'Medium', selectedKey: 'e', selectedLabel: 'Easy' },
-    { hotkey: 'h', label: 'Hard', selectedKey: 'm', selectedLabel: 'Medium' },
+    {
+      hotkey: 'e', label: 'Easy', selectedKey: 'h', selectedLabel: 'Hard', difficulty: 'easy',
+    },
+    {
+      hotkey: 'm', label: 'Medium', selectedKey: 'e', selectedLabel: 'Easy', difficulty: 'medium',
+    },
+    {
+      hotkey: 'h', label: 'Hard', selectedKey: 'm', selectedLabel: 'Medium', difficulty: 'hard',
+    },
   ]
   for (const choice of choices) {
-    await ui.press({ key: 'new' })
+    await openPicker()
     const selectedRow = new RegExp(`${choice.selectedKey}  ${choice.selectedLabel}`)
     expect((await ui.find({ type: 'Text', text: selectedRow, in: 'picker' }))?.props.backgroundColor)
       .toBe('#e2a93b')
     await ui.key({ key: choice.hotkey, in: 'picker' })
-    expect(await ui.find({ type: 'Text', text: new RegExp(choice.label) })).toBeDefined()
+    expect(controlsState(await ui.find({ key: 'controls' })).difficulty)
+      .toBe(choice.difficulty)
   }
 
-  await ui.press({ key: 'new' })
+  await openPicker()
   await ui.key({ key: 'm', in: 'picker' })
-  expect(await ui.find({ type: 'Text', text: /Medium/ })).toBeDefined()
-  await ui.press({ key: 'new' })
+  expect(controlsState(await ui.find({ key: 'controls' })).difficulty).toBe('medium')
+  await openPicker()
   await ui.pointer({ type: 'down', x: 20, y: 8, button: 'left', in: 'picker' })
-  expect(await ui.find({ type: 'Text', text: /Hard/ })).toBeDefined()
+  expect(controlsState(await ui.find({ key: 'controls' })).difficulty).toBe('hard')
   await ui.unmount()
+})
+
+test('terminal controls write, clear, show status and open the picker', async ($, on) => {
+  const fresh = newGame('medium')
+  let pair: number[] = []
+  for (let row = 0; row < 9 && pair.length === 0; row++) {
+    const blanks = [...fresh.puzzle].flatMap((digit, index) =>
+      Math.floor(index / 9) === row && digit === '0' ? [index] : [],
+    )
+    if (blanks.length >= 2) pair = blanks.slice(0, 2)
+  }
+  if (pair.length !== 2) throw new Error('Expected two empty cells in one row')
+
+  const board = [...fresh.board]
+  board[pair[0]!] = '5'
+  const current = { ...fresh, board: board.join(''), cursor: pair[1]! }
+  mock.store(on, { 'game:/work/controls': current })
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('session.cwd', () => ({ value: '/work/controls' }))
+  on('command.register', (_, e) => ({ value: { command: e.name } }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+
+  await $.session.start({ cwd: '/work/controls', surface: 'terminal', isInteractive: true })
+  await $.command.run({
+    command: 'sudoku',
+    args: '',
+    origin: { kind: 'composer' },
+    presentation: { isFullscreen: false, columns: 120 },
+  })
+
+  const ui = await $.ui.mount({
+    plugin: 'sudoku',
+    surface: 'terminal',
+    component: 'Pane',
+    requestId: 'sudoku',
+    props: {
+      ...PANE_PROPS,
+      bodyColumns: 48,
+      scroll: { ...PANE_PROPS.scroll, bodyRows: 55 },
+    },
+  })
+  const root = rootProps(await ui.drawn())
+  expect(root.backgroundColor).toBe(PAPER)
+  expect(root.width).toBe(48)
+  expect(root.height).toBe(55)
+  expect(root.justifyContent).toBe('center')
+  expect(await ui.findAll({ type: 'Button' })).toHaveLength(0)
+  const controlTexts = await ui.findAll({ type: 'Text', in: 'controls' })
+  expect(controlTexts.some(text => /[\u2190-\u2193]/.test(text.text))).toBe(false)
+
+  const boardProps = boardState(await ui.find({ key: 'board' }))
+  const geometry = geometryAtScale(boardProps.geometry.scale)
+  const controls = controlsGeometry(boardProps.geometry)
+  const cell = geometry.cellPosition(Math.floor(pair[1]! / 9), pair[1]! % 9)
+  await ui.pointer({
+    type: 'down',
+    x: cell.x + Math.floor(geometry.cellWidth / 2),
+    y: cell.y + Math.floor(geometry.cellHeight / 2),
+    button: 'left',
+    in: 'board',
+  })
+
+  const fiveX = controls.keypadX + controls.tileWidth + 1 + Math.floor(controls.tileWidth / 2)
+  const fiveY = controls.keypadY + controls.tileHeight + 1 + Math.floor(controls.tileHeight / 2)
+  await ui.pointer({ type: 'down', x: fiveX, y: fiveY, button: 'left', in: 'controls' })
+  let changed = boardState(await ui.find({ key: 'board' }))
+  expect(changed.board[pair[1]!]).toBe('5')
+
+  let controlsProps = controlsState(await ui.find({ key: 'controls' }))
+  expect(controlsProps.difficulty).toBe('medium')
+  expect(controlsProps.filled).toBe([...changed.board].filter(digit => digit !== '0').length)
+  expect(controlsProps.clashes).toBe(conflicts(changed.board).size)
+  expect((await ui.find({ type: 'Text', text: /Medium/, in: 'controls' }))).toBeDefined()
+  expect((await ui.find({ type: 'Text', text: /\d+\/81 filled/, in: 'controls' }))).toBeDefined()
+  expect((await ui.find({ type: 'Text', text: /in conflict/, in: 'controls' }))).toBeDefined()
+  const highlights = await ui.findAll({ type: 'Text', in: 'controls' })
+  expect(highlights.some(text => text.props.backgroundColor === CURSOR && text.text.includes('5')))
+    .toBe(true)
+
+  const clearY = controls.keypadY + 3 * (controls.tileHeight + 1) +
+    Math.floor(controls.tileHeight / 2)
+  await ui.pointer({
+    type: 'down',
+    x: controls.keypadX,
+    y: clearY,
+    button: 'left',
+    in: 'controls',
+  })
+  changed = boardState(await ui.find({ key: 'board' }))
+  expect(changed.board[pair[1]!]).toBe('0')
+  controlsProps = controlsState(await ui.find({ key: 'controls' }))
+  expect(controlsProps.clashes).toBe(conflicts(changed.board).size)
+
+  await ui.pointer(newGameClick(boardProps.geometry))
+  expect(await ui.find({ key: 'picker' })).toBeDefined()
+  await ui.unmount()
+})
+
+test('focus routing preserves engine stops and keyboard scroll distinguishes the wheel', async () => {
+  expect(focusTarget('another-element', 'another-plugin', false)).toBe('board')
+  expect(focusTarget('another-element', 'another-plugin', true)).toBe('picker')
+  expect(focusTarget(undefined, undefined, false)).toBeUndefined()
+  expect(focusTarget('new', 'sudoku', false)).toBe('new')
+
+  expect(scrollPlan('person', false, 1, false)).toEqual({ consume: true, rowDelta: 1 })
+  expect(scrollPlan('person', false, -1, false)).toEqual({ consume: true, rowDelta: -1 })
+  expect(scrollPlan('person', false, 1, true)).toEqual({ consume: true, rowDelta: 0 })
+  expect(scrollPlan('person', true, 1, false)).toEqual({ consume: false, rowDelta: 0 })
+  expect(scrollPlan('plugin', false, 1, false)).toEqual({ consume: false, rowDelta: 0 })
 })
 
 test('geometry scales the board, fills highlights and maps clicks to nearby cells', async ($, on) => {
   const cases = [
     { columns: 44, rows: 30, scale: 1 },
-    { columns: 80, rows: 40, scale: 2 },
-    { columns: 120, rows: 60, scale: 4 },
+    { columns: 80, rows: 50, scale: 2 },
+    { columns: 120, rows: 75, scale: 4 },
     { columns: 20, rows: 15, scale: 1 },
   ] as const
 
@@ -308,7 +453,7 @@ test('geometry scales the board, fills highlights and maps clicks to nearby cell
     expect(chosen.scale).toBe(panel.scale)
     expect(chosen.cellWidth).toBe(2 * chosen.cellHeight + 1)
     const chosenFits = chosen.width <= panel.columns && boardContentHeight(chosen) <= panel.rows
-    expect(chosenFits).toBe(panel.columns >= 41 && panel.rows >= 27)
+    expect(chosenFits).toBe(chosen.scale > 1 || (panel.columns >= 41 && panel.rows >= 33))
 
     const larger = geometryAtScale(panel.scale + 1)
     expect(larger.width > panel.columns || boardContentHeight(larger) > panel.rows).toBe(true)
@@ -351,6 +496,13 @@ test('geometry scales the board, fills highlights and maps clicks to nearby cell
   const client = await ui.find({ key: 'board' })
   expect(client?.props.width).toBe(geometry.width)
   expect(client?.props.height).toBe(geometry.height)
+  const controlsClient = await ui.find({ key: 'controls' })
+  const controlGeometry = controlsGeometry(state.geometry)
+  expect(controlsClient?.props.width).toBe(controlGeometry.width)
+  expect(controlsClient?.props.height).toBe(controlsHeight(state.geometry.scale))
+  const controlsRoot = rootProps(await ui.drawn({ in: 'controls' }))
+  expect(controlsRoot.width).toBe(controlGeometry.width)
+  expect(controlsRoot.height).toBe(controlGeometry.height)
   const drawnRoot = rootProps(await ui.drawn({ in: 'board' }))
   expect(drawnRoot.width).toBe(geometry.width)
   expect(drawnRoot.height).toBe(geometry.height)
@@ -422,10 +574,16 @@ test('geometry scales the board, fills highlights and maps clicks to nearby cell
   expect(boardState(await ui.find({ key: 'board' })).cursor).toBe(beforeOutsideClick)
   await ui.unmount()
 
-  ui = await mount(80, 40)
+  ui = await mount(80, 50)
   state = boardState(await ui.find({ key: 'board' }))
   geometry = geometryAtScale(state.geometry.scale)
   expect(state.geometry.scale).toBe(2)
+  const panelRoot = rootProps(await ui.drawn())
+  expect(panelRoot.backgroundColor).toBe(PAPER)
+  expect(panelRoot.width).toBe(80)
+  expect(panelRoot.height).toBe(50)
+  expect(panelRoot.justifyContent).toBe('center')
+  expect(panelRoot.alignItems).toBe('center')
   const largeClient = await ui.find({ key: 'board' })
   expect(largeClient?.props.width).toBe(geometry.width)
   expect(largeClient?.props.height).toBe(geometry.height)
@@ -433,6 +591,10 @@ test('geometry scales the board, fills highlights and maps clicks to nearby cell
   expect(largeRoot.width).toBe(geometry.width)
   expect(largeRoot.height).toBe(geometry.height)
   expect(largeRoot.borderStyle).toBeUndefined()
+  const largeControls = controlsGeometry(state.geometry)
+  const largeControlsClient = await ui.find({ key: 'controls' })
+  expect(largeControlsClient?.props.width).toBe(largeControls.width)
+  expect(largeControlsClient?.props.height).toBe(largeControls.height)
 
   const selectedPosition = geometry.cellPosition(1, 1)
   await selectAt(
@@ -513,6 +675,6 @@ test('a saved game without difficulty loads as medium', async ($, on) => {
     requestId: 'sudoku',
     props: PANE_PROPS,
   })
-  expect(await ui.find({ type: 'Text', text: /Medium/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /Medium/, in: 'controls' })).toBeDefined()
   await ui.unmount()
 })

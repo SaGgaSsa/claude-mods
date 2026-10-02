@@ -4,18 +4,22 @@ import type { EngineInterface, Register, RenderElement } from 'claude-code'
 import type {
   BoardMessage,
   BoardProps,
+  ControlsMessage,
+  ControlsProps,
   Difficulty,
   GeometryProps,
   PickerMessage,
   PickerProps,
   SudokuGame,
 } from '../types'
+import { boardContentHeight, controlsHeight, geometryForPanel, pickerHeight } from './geometry'
+import { PAPER, PLAYER, WOOD } from './palette'
 import { conflicts, moveCursor, newGame, setDigit } from './sudoku'
-import { boardContentHeight, geometryForPanel, pickerHeight } from './geometry'
 
 const PANE = 'sudoku'
 const BOARD = 'board'
 const PICKER = 'picker'
+const CONTROLS = 'controls'
 const game = atom({ plugin: 'sudoku', key: 'game' } as const, null)
 const selectingDifficulty = atom(
   { plugin: 'sudoku', key: 'selectingDifficulty' } as const,
@@ -27,6 +31,32 @@ const DIFFICULTIES: { difficulty: Difficulty; hotkey: string; label: string; giv
   { difficulty: 'medium', hotkey: 'm', label: 'Medium', givens: 32 },
   { difficulty: 'hard', hotkey: 'h', label: 'Hard', givens: 26 },
 ]
+
+const FALLBACK_KEYS = new Set([
+  'easy', 'medium', 'hard', 'cancel', 'new', 'clear',
+  'digit:1', 'digit:2', 'digit:3', 'digit:4', 'digit:5',
+  'digit:6', 'digit:7', 'digit:8', 'digit:9',
+])
+
+export const focusTarget = (
+  element: string | undefined,
+  plugin: string | undefined,
+  choosingDifficulty: boolean,
+): string | undefined => {
+  if (!element) return undefined
+  if (plugin === 'sudoku' && FALLBACK_KEYS.has(element)) return element
+  return choosingDifficulty ? PICKER : BOARD
+}
+
+export const scrollPlan = (
+  origin: 'person' | 'plugin',
+  hasPointer: boolean,
+  by: number,
+  choosingDifficulty: boolean,
+) => ({
+  consume: origin === 'person' && !hasPointer,
+  rowDelta: origin === 'person' && !hasPointer && !choosingDifficulty ? Math.sign(by) : 0,
+})
 
 // One saved game per workspace folder.
 const storeKey = async ($: EngineInterface) => `game:${await $.session.cwd()}`
@@ -78,6 +108,14 @@ const boardProps = (current: SudokuGame, geometry: GeometryProps): BoardProps =>
   geometry,
 })
 
+const controlsProps = (current: SudokuGame, geometry: GeometryProps): ControlsProps => ({
+  difficulty: current.difficulty,
+  filled: [...current.board].filter(digit => digit !== '0').length,
+  clashes: conflicts(current.board).size,
+  isSolved: current.isSolved,
+  geometry,
+})
+
 const applyMessage = (current: SudokuGame, message: BoardMessage): SudokuGame => {
   switch (message.type) {
     case 'select':
@@ -94,19 +132,24 @@ const applyPickerMessage = async ($: EngineInterface, message: PickerMessage) =>
   else await cancelDifficultyPicker($)
 }
 
-const MOVES = [
-  { hotkey: 'w', label: '↑', rows: -1, cols: 0 },
-  { hotkey: 'a', label: '←', rows: 0, cols: -1 },
-  { hotkey: 's', label: '↓', rows: 1, cols: 0 },
-  { hotkey: 'd', label: '→', rows: 0, cols: 1 },
-]
+const applyControlsMessage = async ($: EngineInterface, message: ControlsMessage) => {
+  if (message.type === 'focus') {
+    await $.ui.focus({ requestId: PANE, key: BOARD }).catch(() => undefined)
+    return {}
+  }
 
-// Laid out like a numeric keypad.
-const KEYPAD = [
-  [7, 8, 9],
-  [4, 5, 6],
-  [1, 2, 3],
-]
+  if (message.type === 'new') {
+    await showDifficultyPicker($)
+    return {}
+  }
+
+  const current = await change($, game => setDigit(game, message.digit))
+  await $.ui.focus({ requestId: PANE, key: BOARD }).catch(() => undefined)
+  return current ? { props: controlsProps(current, message.geometry) } : {}
+}
+
+const titleCase = (difficulty: Difficulty) =>
+  `${difficulty[0]!.toUpperCase()}${difficulty.slice(1)}`
 
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
@@ -132,6 +175,24 @@ export const register: Register = on => {
     return { text: 'Sudoku pane opened.' }
   })
 
+  // The ring follows the active Client; engine stops such as the close mark pass through.
+  on('ui.focus', { requestId: PANE }, async ($, e, next) => {
+    const target = focusTarget(e.element, e.plugin, await read($, selectingDifficulty))
+    if (!target || e.element === target) return next(e)
+    return next({ ...e, element: target })
+  })
+
+  on('ui.scroll', { requestId: PANE }, async ($, e, next) => {
+    const choosingDifficulty = await read($, selectingDifficulty)
+    const plan = scrollPlan(e.origin.kind, Boolean(e.pointer), e.by, choosingDifficulty)
+    if (!plan.consume) return next(e)
+
+    if (plan.rowDelta !== 0) {
+      await change($, current => moveCursor(current, plan.rowDelta, 0))
+    }
+    return {}
+  })
+
   // Keys and clicks on the board arrive here; they never reach the prompt.
   on('ui.message', { requestId: PANE, element: BOARD }, async ($, e) => {
     const message = e.data as BoardMessage
@@ -145,39 +206,50 @@ export const register: Register = on => {
     return {}
   })
 
+  on('ui.message', { requestId: PANE, element: CONTROLS }, async ($, e) =>
+    applyControlsMessage($, e.data as ControlsMessage))
+
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
     const elements = $.ui.resolve(e)
     const { Box, Text, Button } = elements
+    const Client = 'Client' in elements ? elements.Client : undefined
     const current = await read($, game)
     const choosingDifficulty = await read($, selectingDifficulty)
     const bodyRows = e.props.scroll?.bodyRows
     const bodyColumns = e.props.bodyColumns
     const geometry = geometryForPanel(bodyColumns, bodyRows)
+    const terminal = e.surface === 'terminal'
 
-    const centerContent = (
+    const finish = (
       content: RenderElement,
       contentHeight: number,
       contentWidth: number,
     ): RenderElement => {
       const centerVertically = typeof bodyRows === 'number' && bodyRows > contentHeight
       const centerHorizontally = typeof bodyColumns === 'number' && bodyColumns > contentWidth
-      if (!centerVertically && !centerHorizontally) return content
+      if (!terminal && !centerVertically && !centerHorizontally) return content
+
+      const bodyContent = terminal ? (
+        <Box flexDirection="column" flexShrink={0} width={contentWidth}>
+          {content}
+        </Box>
+      ) : content
 
       return (
         <Box
           flexDirection="column"
-          height={centerVertically ? bodyRows : undefined}
-          width={centerHorizontally ? bodyColumns : undefined}
+          height={terminal ? bodyRows : centerVertically ? bodyRows : undefined}
+          width={terminal ? bodyColumns : centerHorizontally ? bodyColumns : undefined}
           justifyContent={centerVertically ? 'center' : undefined}
           alignItems={centerHorizontally ? 'center' : undefined}
+          backgroundColor={terminal ? PAPER : undefined}
         >
-          {content}
+          {bodyContent}
         </Box>
       )
     }
 
     if (!current || choosingDifficulty) {
-      const Client = 'Client' in elements ? elements.Client : undefined
       const pickerProps: PickerProps = {
         difficulty: current?.difficulty ?? null,
         hasGame: current !== null,
@@ -194,7 +266,7 @@ export const register: Register = on => {
         />
       ) : (
         <Box flexDirection="column" rowGap={1}>
-          <Text bold>Choose a difficulty</Text>
+          <Text bold color={WOOD}>Choose a difficulty</Text>
           {DIFFICULTIES.map(option => (
             <Box key={`difficulty:${option.difficulty}`} flexDirection="row" columnGap={2}>
               <Button
@@ -203,7 +275,7 @@ export const register: Register = on => {
                 label={option.label}
                 onPress={() => chooseDifficulty($, option.difficulty)}
               />
-              <Text>{`${option.givens} given numbers`}</Text>
+              <Text color={PLAYER}>{`${option.givens} given numbers`}</Text>
             </Box>
           ))}
           {current && (
@@ -219,95 +291,86 @@ export const register: Register = on => {
       )
       const fallbackHeight = current ? 9 : 7
       const contentHeight = Client ? cardHeight : fallbackHeight
-      return centerContent(picker, contentHeight, geometry.width)
+      return finish(picker, contentHeight, geometry.width)
     }
 
-    const props = boardProps(current, geometry)
-    const filled = [...current.board].filter(digit => digit !== '0').length
-    const enter = (digit: number) => () => change($, g => setDigit(g, digit))
-    const move = (rows: number, cols: number) => () => change($, g => moveCursor(g, rows, cols))
-
-    const status = current.isSolved ? (
-      <Text>
-        <Text bold color="green">Solved! </Text>
-        <Text>
-          {`${current.difficulty[0]!.toUpperCase()}${current.difficulty.slice(1)} · ${filled}/81 filled`}
-        </Text>
-        <Text dimColor> · Press n for a new game.</Text>
-      </Text>
+    const board = boardProps(current, geometry)
+    const controlProps = controlsProps(current, geometry)
+    const enter = (digit: number) => () => change($, game => setDigit(game, digit))
+    const controls = Client ? (
+      <Client
+        key={CONTROLS}
+        module="./controls.tsx"
+        props={controlProps}
+        width={geometry.width}
+        height={controlsHeight(geometry.scale)}
+      />
     ) : (
-      <Text>
-        <Text dimColor>
-          {`${current.difficulty[0]!.toUpperCase()}${current.difficulty.slice(1)} · ${filled}/81 filled`}
+      <Box flexDirection="column" rowGap={1}>
+        <Text color={PLAYER}>
+          {`${titleCase(current.difficulty)} \u00b7 ${controlProps.filled}/81 filled`}
         </Text>
-        {props.clashes.length > 0 && <Text color="red">{` · ${props.clashes.length} in conflict`}</Text>}
-      </Text>
-    )
-
-    const moveButton = (index: number) => {
-      const one = MOVES[index]!
-      return (
+        <Box flexDirection="row" columnGap={1}>
+          {[7, 8, 9].map(digit => (
+            <Button
+              key={`digit:${digit}`}
+              hotkey={String(digit)}
+              label={String(digit)}
+              onPress={enter(digit)}
+            />
+          ))}
+        </Box>
+        <Box flexDirection="row" columnGap={1}>
+          {[4, 5, 6].map(digit => (
+            <Button
+              key={`digit:${digit}`}
+              hotkey={String(digit)}
+              label={String(digit)}
+              onPress={enter(digit)}
+            />
+          ))}
+        </Box>
+        <Box flexDirection="row" columnGap={1}>
+          {[1, 2, 3].map(digit => (
+            <Button
+              key={`digit:${digit}`}
+              hotkey={String(digit)}
+              label={String(digit)}
+              onPress={enter(digit)}
+            />
+          ))}
+        </Box>
+        <Button key="clear" hotkey="0" label="0 Clear" onPress={enter(0)} />
         <Button
-          key={`move:${one.hotkey}`}
+          key="new"
           plain
-          hotkey={one.hotkey}
-          label={one.label}
-          onPress={move(one.rows, one.cols)}
+          hotkey="n"
+          label="New game"
+          onPress={() => showDifficultyPicker($)}
         />
-      )
-    }
-
-    // Only the terminal draws a Client; elsewhere the keypad still plays.
-    const Client = 'Client' in elements ? elements.Client : undefined
+      </Box>
+    )
     const content = (
-      <Box flexDirection="column">
+      <Box flexDirection="column" width={geometry.width}>
         {Client ? (
           <Client
             key={BOARD}
             module="./board.tsx"
-            props={props}
+            props={board}
             width={geometry.width}
             height={geometry.height}
           />
         ) : (
-          <Text dimColor>The board needs the terminal.</Text>
+          <Text color={WOOD}>The board needs the terminal.</Text>
         )}
-        <Text> </Text>
-        {status}
-        <Text> </Text>
-        <Box flexDirection="row" columnGap={4}>
-          <Box flexDirection="column">
-            {KEYPAD.map(line => (
-              <Box key={`keys:${line[0]}`} flexDirection="row" columnGap={1}>
-                {line.map(digit => (
-                  <Button
-                    key={`digit:${digit}`}
-                    hotkey={String(digit)}
-                    label={String(digit)}
-                    onPress={enter(digit)}
-                  />
-                ))}
-              </Box>
-            ))}
-            <Button key="clear" hotkey="0" label="0  Clear" onPress={enter(0)} />
-          </Box>
-          <Box flexDirection="column">
-            <Box flexDirection="row" paddingLeft={4}>{moveButton(0)}</Box>
-            <Box flexDirection="row" columnGap={3}>{moveButton(1)}{moveButton(3)}</Box>
-            <Box flexDirection="row" paddingLeft={4}>{moveButton(2)}</Box>
-            <Text> </Text>
-            <Button
-              key="new"
-              plain
-              hotkey="n"
-              label="New game"
-              onPress={() => showDifficultyPicker($)}
-            />
-          </Box>
-        </Box>
+        {Client ? (
+          <Text color={PAPER} backgroundColor={PAPER}>{' '.repeat(geometry.width)}</Text>
+        ) : null}
+        {controls}
       </Box>
     )
-    const contentHeight = Client ? boardContentHeight(geometry) : 9
-    return centerContent(content, contentHeight, geometry.width)
+
+    const contentHeight = Client ? boardContentHeight(geometry) : geometry.height + 8
+    return finish(content, contentHeight, geometry.width)
   })
 }
