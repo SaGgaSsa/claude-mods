@@ -1,6 +1,6 @@
 {
   "name": "sudoku",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "A sudoku in a Claude Code pane, saved per workspace folder",
   "author": { "name": "SaGgaSsa" },
   "types": "./types/index.d.ts"

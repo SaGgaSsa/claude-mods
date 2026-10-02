@@ -1,12 +1,22 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
-import type { BoardMessage, BoardProps, SudokuGame } from '../types'
+import type { BoardMessage, BoardProps, Difficulty, SudokuGame } from '../types'
 import { conflicts, moveCursor, newGame, setDigit } from './sudoku'
 
 const PANE = 'sudoku'
 const BOARD = 'board'
 const game = atom({ plugin: 'sudoku', key: 'game' } as const, null)
+const selectingDifficulty = atom(
+  { plugin: 'sudoku', key: 'selectingDifficulty' } as const,
+  false,
+)
+
+const DIFFICULTIES: { difficulty: Difficulty; hotkey: string; label: string; givens: number }[] = [
+  { difficulty: 'easy', hotkey: 'e', label: 'Easy', givens: 40 },
+  { difficulty: 'medium', hotkey: 'm', label: 'Medium', givens: 32 },
+  { difficulty: 'hard', hotkey: 'h', label: 'Hard', givens: 26 },
+]
 
 // One saved game per workspace folder.
 const storeKey = async ($: EngineInterface) => `game:${await $.session.cwd()}`
@@ -22,14 +32,23 @@ const change = async ($: EngineInterface, fn: (current: SudokuGame) => SudokuGam
   return next
 }
 
-const startNewGame = async ($: EngineInterface) => {
-  const fresh = newGame()
+const showDifficultyPicker = async ($: EngineInterface) => {
+  await update($, selectingDifficulty, () => true)
+}
+
+const chooseDifficulty = async ($: EngineInterface, difficulty: Difficulty) => {
+  const fresh = newGame(difficulty)
   await update($, game, () => fresh)
   await save($, fresh)
+  await update($, selectingDifficulty, () => false)
+}
+
+const cancelDifficultyPicker = async ($: EngineInterface) => {
+  await update($, selectingDifficulty, () => false)
 }
 
 const openPane = async ($: EngineInterface) => {
-  await $.ui.open({ id: PANE, title: 'Sudoku', focus: true, rows: 26, columns: 44 })
+  await $.ui.open({ id: PANE, title: 'Sudoku', focus: true, rows: 30, columns: 48 })
   // Hand the keys to the board when the surface allows it; a click does too.
   await $.ui.focus({ requestId: PANE, key: BOARD }).catch(() => undefined)
 }
@@ -73,14 +92,18 @@ export const register: Register = on => {
       description: 'Play the sudoku saved for this folder in a pane',
     })
 
-    const saved = (await $.store.get(`game:${e.cwd}`)) as SudokuGame | undefined
-    await update($, game, () => saved ?? null)
+    const saved = (await $.store.get(`game:${e.cwd}`)) as
+      | (Omit<SudokuGame, 'difficulty'> & { difficulty?: Difficulty })
+      | undefined
+    const loaded = saved ? { ...saved, difficulty: saved.difficulty ?? 'medium' } : null
+    await update($, game, () => loaded)
+    await update($, selectingDifficulty, () => !loaded)
 
     return next(e)
   })
 
   on('command.run', { command: 'sudoku' }, async $ => {
-    if (!(await read($, game))) await startNewGame($)
+    if (!(await read($, game))) await showDifficultyPicker($)
     await openPane($)
 
     return { text: 'Sudoku pane opened.' }
@@ -97,12 +120,32 @@ export const register: Register = on => {
     const elements = $.ui.resolve(e)
     const { Box, Text, Button } = elements
     const current = await read($, game)
+    const choosingDifficulty = await read($, selectingDifficulty)
 
-    if (!current) {
+    if (!current || choosingDifficulty) {
       return (
-        <Box flexDirection="column">
-          <Text dimColor>No sudoku in this folder yet.</Text>
-          <Button key="new" hotkey="n" plain label="New game" onPress={() => startNewGame($)} />
+        <Box flexDirection="column" rowGap={1}>
+          <Text bold>Choose a difficulty</Text>
+          {DIFFICULTIES.map(option => (
+            <Box key={`difficulty:${option.difficulty}`} flexDirection="row" columnGap={2}>
+              <Button
+                key={option.difficulty}
+                hotkey={option.hotkey}
+                label={option.label}
+                onPress={() => chooseDifficulty($, option.difficulty)}
+              />
+              <Text>{`${option.givens} given numbers`}</Text>
+            </Box>
+          ))}
+          {current && (
+            <Button
+              key="cancel"
+              hotkey="c"
+              plain
+              label="Cancel"
+              onPress={() => cancelDifficultyPicker($)}
+            />
+          )}
         </Box>
       )
     }
@@ -113,10 +156,18 @@ export const register: Register = on => {
     const move = (rows: number, cols: number) => () => change($, g => moveCursor(g, rows, cols))
 
     const status = current.isSolved ? (
-      <Text bold color="green">Solved! Press n for a new game.</Text>
+      <Text>
+        <Text bold color="green">Solved! </Text>
+        <Text>
+          {`${current.difficulty[0]!.toUpperCase()}${current.difficulty.slice(1)} · ${filled}/81 filled`}
+        </Text>
+        <Text dimColor> · Press n for a new game.</Text>
+      </Text>
     ) : (
       <Text>
-        <Text dimColor>{filled}/81 filled</Text>
+        <Text dimColor>
+          {`${current.difficulty[0]!.toUpperCase()}${current.difficulty.slice(1)} · ${filled}/81 filled`}
+        </Text>
         {props.clashes.length > 0 && <Text color="red">{` · ${props.clashes.length} in conflict`}</Text>}
       </Text>
     )
@@ -124,14 +175,20 @@ export const register: Register = on => {
     const moveButton = (index: number) => {
       const one = MOVES[index]!
       return (
-        <Button key={`move:${one.hotkey}`} plain hotkey={one.hotkey} label={one.label} onPress={move(one.rows, one.cols)} />
+        <Button
+          key={`move:${one.hotkey}`}
+          plain
+          hotkey={one.hotkey}
+          label={one.label}
+          onPress={move(one.rows, one.cols)}
+        />
       )
     }
 
     // Only the terminal draws a Client; elsewhere the keypad still plays.
     const Client = 'Client' in elements ? elements.Client : undefined
     const board = Client ? (
-      <Client key={BOARD} module="./board.tsx" props={props} width={39} height={17} />
+      <Client key={BOARD} module="./board.tsx" props={props} width={41} height={19} />
     ) : (
       <Text dimColor>The board needs the terminal.</Text>
     )
@@ -148,7 +205,12 @@ export const register: Register = on => {
             {KEYPAD.map(line => (
               <Box key={`keys:${line[0]}`} flexDirection="row" columnGap={1}>
                 {line.map(digit => (
-                  <Button key={`digit:${digit}`} hotkey={String(digit)} label={String(digit)} onPress={enter(digit)} />
+                  <Button
+                    key={`digit:${digit}`}
+                    hotkey={String(digit)}
+                    label={String(digit)}
+                    onPress={enter(digit)}
+                  />
                 ))}
               </Box>
             ))}
@@ -159,7 +221,13 @@ export const register: Register = on => {
             <Box flexDirection="row" columnGap={3}>{moveButton(1)}{moveButton(3)}</Box>
             <Box flexDirection="row" paddingLeft={4}>{moveButton(2)}</Box>
             <Text> </Text>
-            <Button key="new" plain hotkey="n" label="New game" onPress={() => startNewGame($)} />
+            <Button
+              key="new"
+              plain
+              hotkey="n"
+              label="New game"
+              onPress={() => showDifficultyPicker($)}
+            />
           </Box>
         </Box>
       </Box>

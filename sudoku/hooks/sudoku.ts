@@ -1,7 +1,10 @@
-import type { SudokuGame } from '../types'
+import type { Difficulty, SudokuGame } from '../types'
 
-// Medium: about 32 givens, always with a unique solution.
-const MEDIUM_GIVENS = 32
+const TARGET_GIVENS = {
+  easy: 40,
+  medium: 32,
+  hard: 26,
+} as const
 
 type Grid = number[]
 
@@ -63,14 +66,14 @@ export const countSolutions = (grid: Grid, limit = 2): number => {
 
 export const toGrid = (board: string): Grid => [...board].map(Number)
 
-export const newGame = (): SudokuGame => {
+export const newGame = (difficulty: Difficulty): SudokuGame => {
   const solution: Grid = new Array(81).fill(0)
   fill(solution)
 
   const puzzle = [...solution]
   let givens = 81
   for (const index of shuffle([...Array(81).keys()])) {
-    if (givens <= MEDIUM_GIVENS) break
+    if (givens <= TARGET_GIVENS[difficulty]) break
     const digit = puzzle[index] ?? 0
     puzzle[index] = 0
     if (countSolutions([...puzzle]) === 1) {
@@ -89,6 +92,7 @@ export const newGame = (): SudokuGame => {
     board: puzzleText,
     cursor: cursor === -1 ? 0 : cursor,
     isSolved: false,
+    difficulty,
   }
 }
 

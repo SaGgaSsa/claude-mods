@@ -1,10 +1,13 @@
 // Boards are 81-character strings, row by row; '0' is an empty cell.
+export type Difficulty = 'easy' | 'medium' | 'hard'
+
 export type SudokuGame = {
   puzzle: string
   solution: string
   board: string
   cursor: number
   isSolved: boolean
+  difficulty: Difficulty
 }
 
 // What the board Client draws, handed over as its props.
@@ -23,6 +26,9 @@ export type BoardMessage =
 
 declare module 'claude-code' {
   interface PluginState {
-    sudoku: { game: SudokuGame | null }
+    sudoku: {
+      game: SudokuGame | null
+      selectingDifficulty: boolean
+    }
   }
 }

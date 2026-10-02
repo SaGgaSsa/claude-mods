@@ -2,18 +2,25 @@ import type { ClientModule } from 'claude-code'
 
 import type { BoardMessage, BoardProps } from '../types'
 
-// Colors: theme-independent ANSI names.
-const LINE = 'gray'
-const GIVEN = 'cyan'
-const CURSOR = 'yellow'
-const CLASH = 'red'
+const PAPER = '#f7ecd0'
+const FINE_LINE = '#c9b48a'
+const WOOD = '#5b3a1e'
+const GIVEN = '#2b1d0e'
+const PLAYER = '#7a6a58'
+const CURSOR = '#e2a93b'
+const MATCH = '#f3d77e'
+const CLASH = '#b03a2e'
+const CLASH_BACKGROUND = '#edb0a8'
 
-// The board is 39 columns by 17 rows, so it reads about square in a terminal:
-// cells are 3 wide with a 1-column gap, boxes 11 wide joined by ' │ '.
+const FRAME = 1
 const BOX_WIDTH = 11
 const BOX_STRIDE = BOX_WIDTH + 3
-const SPACER = [0, 1, 2].map(() => ' '.repeat(BOX_WIDTH)).join(' │ ')
-const SEPARATOR = [0, 1, 2].map(() => '─'.repeat(BOX_WIDTH)).join('─┼─')
+const CELL_STRIDE = 4
+const BOARD_HEIGHT = 17
+const SEGMENTS = [0, 1, 2]
+// Joints meet the fine '│' inside a block and the heavy '┃' between blocks.
+const ROW_SEPARATOR = SEGMENTS.map(() => '───┼───┼───').join('─╂─')
+const BLOCK_SEPARATOR = SEGMENTS.map(() => '━━━┿━━━┿━━━').join('━╋━')
 
 const MOVES: Record<string, [number, number]> = {
   up: [-1, 0],
@@ -28,19 +35,20 @@ const MOVES: Record<string, [number, number]> = {
 
 const CLEAR_KEYS = new Set(['0', 'backspace', 'delete', ' '])
 
-// Board row on screen y, or -1 for a box separator: rows sit on even lines,
-// each box takes 6 lines (3 rows, 2 spacers, 1 separator).
-const rowAt = (y: number): number => {
+// The framed board is 41 by 19; its inner grid is 39 by 17.
+const rowAt = (screenY: number): number => {
+  const y = screenY - FRAME
   const line = y % 6
-  if (y < 0 || y > 16 || line === 5) return -1
+  if (y < 0 || y >= BOARD_HEIGHT || line === 5) return -1
   return Math.floor(y / 6) * 3 + Math.min(2, Math.round(line / 2))
 }
 
-const colAt = (x: number): number => {
+const colAt = (screenX: number): number => {
+  const x = screenX - FRAME
   const box = Math.floor(x / BOX_STRIDE)
   const within = x - box * BOX_STRIDE
   if (box < 0 || box > 2 || within >= BOX_WIDTH) return -1
-  return box * 3 + Math.floor(within / 4)
+  return box * 3 + Math.floor(within / CELL_STRIDE)
 }
 
 const Board: ClientModule<BoardProps> = (props, surface) => {
@@ -62,49 +70,73 @@ const Board: ClientModule<BoardProps> = (props, surface) => {
   })
 
   const clashes = new Set(props.clashes)
+  const selectedDigit = props.board[props.cursor] ?? '0'
 
   const cell = (index: number) => {
     const digit = props.board[index] ?? '0'
-    const shown = ` ${digit === '0' ? '·' : digit} `
+    const isGiven = props.puzzle[index] !== '0'
+    const isCursor = index === props.cursor
+    const isMatch = digit !== '0' && digit === selectedDigit
     const isClash = clashes.has(index)
+    const backgroundColor = isCursor
+      ? isClash ? CLASH_BACKGROUND : CURSOR
+      : isMatch ? MATCH : PAPER
+    const color = isClash ? CLASH : isGiven ? GIVEN : digit === '0' ? FINE_LINE : PLAYER
 
-    if (index === props.cursor) {
-      return (
-        <Text bold color="black" backgroundColor={isClash ? CLASH : CURSOR}>
-          {shown}
-        </Text>
-      )
-    }
-    if (props.puzzle[index] !== '0') {
-      return <Text bold color={isClash ? CLASH : GIVEN}>{shown}</Text>
-    }
-    if (digit === '0') return <Text dimColor>{shown}</Text>
-    return <Text color={isClash ? CLASH : undefined}>{shown}</Text>
+    return (
+      <Text bold={isCursor || isGiven} color={color} backgroundColor={backgroundColor}>
+        {` ${digit === '0' ? ' ' : digit} `}
+      </Text>
+    )
   }
 
   const row = (r: number) => (
-    <Box flexDirection="row">
-      {[0, 1, 2].map(b => (
-        <Box flexDirection="row">
-          {b > 0 && <Text color={LINE}> │ </Text>}
-          <Box flexDirection="row" columnGap={1}>
-            {[0, 1, 2].map(c => cell(r * 9 + b * 3 + c))}
+    <Box key={`row:${r}`} flexDirection="row" backgroundColor={PAPER}>
+      {SEGMENTS.map(b => (
+        <Box key={`block:${r}:${b}`} flexDirection="row" backgroundColor={PAPER}>
+          {b > 0 && <Text color={WOOD} backgroundColor={PAPER}> ┃ </Text>}
+          <Box flexDirection="row" backgroundColor={PAPER}>
+            {cell(r * 9 + b * 3)}
+            <Text color={FINE_LINE} backgroundColor={PAPER}>│</Text>
+            {cell(r * 9 + b * 3 + 1)}
+            <Text color={FINE_LINE} backgroundColor={PAPER}>│</Text>
+            {cell(r * 9 + b * 3 + 2)}
           </Box>
         </Box>
       ))}
     </Box>
   )
 
-  const spacer = () => <Text color={LINE}>{SPACER}</Text>
-  const separator = () => <Text color={LINE}>{SEPARATOR}</Text>
+  const separator = (block: boolean) => (
+    <Text color={block ? WOOD : FINE_LINE} backgroundColor={PAPER}>
+      {block ? BLOCK_SEPARATOR : ROW_SEPARATOR}
+    </Text>
+  )
 
   return (
-    <Box flexDirection="column">
-      {row(0)}{spacer()}{row(1)}{spacer()}{row(2)}
-      {separator()}
-      {row(3)}{spacer()}{row(4)}{spacer()}{row(5)}
-      {separator()}
-      {row(6)}{spacer()}{row(7)}{spacer()}{row(8)}
+    <Box
+      flexDirection="column"
+      borderStyle="bold"
+      borderColor={WOOD}
+      backgroundColor={PAPER}
+    >
+      {row(0)}
+      {separator(false)}
+      {row(1)}
+      {separator(false)}
+      {row(2)}
+      {separator(true)}
+      {row(3)}
+      {separator(false)}
+      {row(4)}
+      {separator(false)}
+      {row(5)}
+      {separator(true)}
+      {row(6)}
+      {separator(false)}
+      {row(7)}
+      {separator(false)}
+      {row(8)}
     </Box>
   )
 }
