@@ -1,0 +1,15 @@
+{
+  "name": "claude-mods",
+  "description": "Claude Code mods: small TypeScript hooks that customize Claude Code",
+  "owner": {
+    "name": "SaGgaSsa",
+    "url": "https://github.com/SaGgaSsa"
+  },
+  "plugins": [
+    {
+      "name": "sudoku",
+      "source": "./sudoku",
+      "description": "A sudoku in a Claude Code pane, saved per workspace folder"
+    }
+  ]
+}
