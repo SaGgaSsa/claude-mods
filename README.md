@@ -2,13 +2,53 @@
 
 [Claude Code mods](https://claude.com/blog/claude-code-mods) by SaGgaSsa.
 
-Install the marketplace once, then any mod from it:
+Mods are plugins of function hooks that run inside Claude Code. This repository is a
+plugin marketplace: add it once, then install the mods you want.
+
+## Install
+
+### From GitHub
+
+Inside Claude Code:
 
 ```
 /plugin marketplace add SaGgaSsa/claude-mods
-/plugin install <mod>@claude-mods
+/plugin install sudoku@claude-mods
 /reload-plugins
 ```
+
+Or from a shell:
+
+```
+claude plugin marketplace add SaGgaSsa/claude-mods
+claude plugin install sudoku@claude-mods
+```
+
+### From a local clone
+
+```
+git clone git@github.com:SaGgaSsa/claude-mods.git
+/plugin marketplace add ./claude-mods
+/plugin install sudoku@claude-mods
+/reload-plugins
+```
+
+### Update and remove
+
+```
+/plugin marketplace update claude-mods
+/plugin uninstall sudoku@claude-mods
+```
+
+`/plugin` opens the plugin manager, where you can also enable, disable or update each mod.
+
+### Try a mod without installing it
+
+```
+claude --plugin-dir ./sudoku
+```
+
+The mod loads for that session only and reloads when its files change.
 
 ## sudoku
 
@@ -31,7 +71,7 @@ pick it up the next time you open Claude Code there.
   While the board has them, no key reaches the prompt.
 - Click a number tile under the board to enter that digit; click `0 Clear` to
   erase the selected cell, or `New game` to open the difficulty picker.
-- Givens can't be changed; repeated digits turn red.
+- Givens can't be changed; digits that repeat in a row, column or box turn red.
 - The board uses a cream background, a brown frame, and warm colors for givens,
   entries, the selected cell and matching digits.
 
