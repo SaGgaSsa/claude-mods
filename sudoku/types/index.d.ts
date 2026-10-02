@@ -32,6 +32,8 @@ export type BoardAction =
   | { type: 'select'; index: number }
   | { type: 'move'; rows: number; cols: number }
   | { type: 'digit'; digit: number }
+  | { type: 'new' }
+  | { type: 'input' }
 
 export type BoardMessage = BoardAction & { geometry: GeometryProps }
 
@@ -44,25 +46,31 @@ export type PickerProps = {
 export type PickerMessage =
   | { type: 'choose'; difficulty: Difficulty }
   | { type: 'cancel' }
+  | { type: 'digit'; digit: number }
+  | { type: 'input' }
 
 export type ControlsProps = {
   difficulty: Difficulty
   filled: number
   clashes: number
   isSolved: boolean
+  keyboardActive: boolean
   geometry: GeometryProps
 }
 
 export type ControlsMessage =
   | { type: 'digit'; digit: number; geometry: GeometryProps }
+  | { type: 'move'; rows: number; cols: number; geometry: GeometryProps }
   | { type: 'new'; geometry: GeometryProps }
-  | { type: 'focus' }
+  | { type: 'focus'; geometry: GeometryProps }
+  | { type: 'input'; geometry: GeometryProps }
 
 declare module 'claude-code' {
   interface PluginState {
     sudoku: {
       game: SudokuGame | null
       selectingDifficulty: boolean
+      keyboardActive: boolean
     }
   }
 }

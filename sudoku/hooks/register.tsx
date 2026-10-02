@@ -21,6 +21,7 @@ const BOARD = 'board'
 const PICKER = 'picker'
 const CONTROLS = 'controls'
 const game = atom({ plugin: 'sudoku', key: 'game' } as const, null)
+const keyboardActive = atom({ plugin: 'sudoku', key: 'keyboardActive' } as const, false)
 const selectingDifficulty = atom(
   { plugin: 'sudoku', key: 'selectingDifficulty' } as const,
   false,
@@ -108,11 +109,16 @@ const boardProps = (current: SudokuGame, geometry: GeometryProps): BoardProps =>
   geometry,
 })
 
-const controlsProps = (current: SudokuGame, geometry: GeometryProps): ControlsProps => ({
+const controlsProps = (
+  current: SudokuGame,
+  geometry: GeometryProps,
+  keyboardUsed: boolean,
+): ControlsProps => ({
   difficulty: current.difficulty,
   filled: [...current.board].filter(digit => digit !== '0').length,
   clashes: conflicts(current.board).size,
   isSolved: current.isSolved,
+  keyboardActive: keyboardUsed,
   geometry,
 })
 
@@ -124,18 +130,27 @@ const applyMessage = (current: SudokuGame, message: BoardMessage): SudokuGame =>
       return moveCursor(current, message.rows, message.cols)
     case 'digit':
       return setDigit(current, message.digit)
+    case 'new':
+    case 'input':
+      return current
   }
 }
 
 const applyPickerMessage = async ($: EngineInterface, message: PickerMessage) => {
   if (message.type === 'choose') await chooseDifficulty($, message.difficulty)
-  else await cancelDifficultyPicker($)
+  else if (message.type === 'cancel') await cancelDifficultyPicker($)
+  else if (message.type === 'digit') await change($, current => setDigit(current, message.digit))
 }
 
 const applyControlsMessage = async ($: EngineInterface, message: ControlsMessage) => {
-  if (message.type === 'focus') {
-    await $.ui.focus({ requestId: PANE, key: BOARD }).catch(() => undefined)
-    return {}
+  await update($, keyboardActive, () => true)
+
+  if (message.type === 'input' || message.type === 'focus') {
+    const current = await read($, game)
+    if (message.type === 'focus') {
+      await $.ui.focus({ requestId: PANE, key: BOARD }).catch(() => undefined)
+    }
+    return current ? { props: controlsProps(current, message.geometry, true) } : {}
   }
 
   if (message.type === 'new') {
@@ -143,9 +158,11 @@ const applyControlsMessage = async ($: EngineInterface, message: ControlsMessage
     return {}
   }
 
-  const current = await change($, game => setDigit(game, message.digit))
+  const current = await change($, game => message.type === 'digit'
+    ? setDigit(game, message.digit)
+    : moveCursor(game, message.rows, message.cols))
   await $.ui.focus({ requestId: PANE, key: BOARD }).catch(() => undefined)
-  return current ? { props: controlsProps(current, message.geometry) } : {}
+  return current ? { props: controlsProps(current, message.geometry, true) } : {}
 }
 
 const titleCase = (difficulty: Difficulty) =>
@@ -169,6 +186,7 @@ export const register: Register = on => {
   })
 
   on('command.run', { command: 'sudoku' }, async $ => {
+    await update($, keyboardActive, () => false)
     if (!(await read($, game))) await showDifficultyPicker($)
     await openPane($)
 
@@ -196,12 +214,23 @@ export const register: Register = on => {
   // Keys and clicks on the board arrive here; they never reach the prompt.
   on('ui.message', { requestId: PANE, element: BOARD }, async ($, e) => {
     const message = e.data as BoardMessage
-    const next = await change($, current => applyMessage(current, message))
+    await update($, keyboardActive, () => true)
+
+    if (message.type === 'new') {
+      await showDifficultyPicker($)
+      return {}
+    }
+
+    const current = await read($, game)
+    const next = message.type === 'input'
+      ? current
+      : current ? await change($, value => applyMessage(value, message)) : null
 
     return next ? { props: boardProps(next, message.geometry) } : {}
   })
 
   on('ui.message', { requestId: PANE, element: PICKER }, async ($, e) => {
+    await update($, keyboardActive, () => true)
     await applyPickerMessage($, e.data as PickerMessage)
     return {}
   })
@@ -215,6 +244,7 @@ export const register: Register = on => {
     const Client = 'Client' in elements ? elements.Client : undefined
     const current = await read($, game)
     const choosingDifficulty = await read($, selectingDifficulty)
+    const keyboardUsed = await read($, keyboardActive)
     const bodyRows = e.props.scroll?.bodyRows
     const bodyColumns = e.props.bodyColumns
     const geometry = geometryForPanel(bodyColumns, bodyRows)
@@ -295,7 +325,7 @@ export const register: Register = on => {
     }
 
     const board = boardProps(current, geometry)
-    const controlProps = controlsProps(current, geometry)
+    const controlProps = controlsProps(current, geometry, keyboardUsed)
     const enter = (digit: number) => () => change($, game => setDigit(game, digit))
     const controls = Client ? (
       <Client

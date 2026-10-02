@@ -2,90 +2,88 @@ import type { ClientModule } from 'claude-code'
 
 import type { ControlsMessage, ControlsProps } from '../types'
 import { controlsGeometry } from './geometry'
+import {
+  createCanvas,
+  drawFrame,
+  fillRect,
+  horizontalLine,
+  setCell,
+  toElement,
+  verticalLine,
+  writeCentered,
+} from './canvas'
 import { CLASH, CURSOR, FINE_LINE, GIVEN, PAPER, PLAYER, WOOD } from './palette'
 
 type ControlsState = { selected: string | null }
+type StatusSegment = { text: string; color: string; bold?: boolean }
 
-type Pixel = {
-  character: string
-  color: string
-  backgroundColor: string
-  bold: boolean
+const MOVES: Record<string, [number, number]> = {
+  up: [-1, 0],
+  down: [1, 0],
+  left: [0, -1],
+  right: [0, 1],
+  w: [-1, 0],
+  s: [1, 0],
+  a: [0, -1],
+  d: [0, 1],
 }
 
-type Segment = { text: string; color: string; bold?: boolean }
-
 const Controls: ClientModule<ControlsProps, ControlsState> = (props, surface) => {
-  const { Box, Text } = surface.elements
   const layout = controlsGeometry(props.geometry)
   const selected = surface.state?.selected ?? null
-  const pixels: Pixel[][] = Array.from({ length: layout.innerHeight }, () =>
-    Array.from({ length: layout.innerWidth }, () => ({
-      character: ' ',
-      color: PAPER,
-      backgroundColor: PAPER,
-      bold: false,
-    })),
-  )
+  const send = (message: ControlsMessage) => surface.post(message)
+  const sendInput = () => send({ type: 'input', geometry: props.geometry })
 
-  const put = (x: number, y: number, pixel: Pixel) => {
-    if (x >= 0 && y >= 0 && x < layout.innerWidth && y < layout.innerHeight) {
-      pixels[y]![x] = pixel
+  surface.onKey(event => {
+    const move = MOVES[event.key]
+    if (move) {
+      return send({ type: 'move', rows: move[0], cols: move[1], geometry: props.geometry })
     }
-  }
-
-  const paintLine = (x: number, y: number, width: number, character: string) => {
-    for (let dx = 0; dx < width; dx++) {
-      put(x + dx, y, {
-        character,
-        color: FINE_LINE,
-        backgroundColor: PAPER,
-        bold: false,
-      })
+    if (/^[1-9]$/.test(event.key)) {
+      const key = `digit:${event.key}`
+      surface.setState({ selected: key })
+      return send({ type: 'digit', digit: Number(event.key), geometry: props.geometry })
     }
-  }
-
-  const paintTile = (
-    x: number,
-    y: number,
-    width: number,
-    label: string,
-    key: string,
-  ) => {
-    const backgroundColor = selected === key ? CURSOR : PAPER
-    const textX = Math.max(0, Math.floor((width - label.length) / 2))
-    const textY = Math.floor(layout.tileHeight / 2)
-
-    for (let dy = 0; dy < layout.tileHeight; dy++) {
-      for (let dx = 0; dx < width; dx++) {
-        const textIndex = dx - textX
-        const character = dy === textY && textIndex >= 0 && textIndex < label.length
-          ? label[textIndex]!
-          : ' '
-        put(x + dx, y + dy, {
-          character,
-          color: selected === key ? GIVEN : PLAYER,
-          backgroundColor,
-          bold: true,
-        })
-      }
+    if (['0', 'backspace', 'delete', ' '].includes(event.key)) {
+      surface.setState({ selected: 'digit:0' })
+      return send({ type: 'digit', digit: 0, geometry: props.geometry })
     }
-  }
+    if (event.key === 'n') {
+      surface.setState({ selected: 'new' })
+      return send({ type: 'new', geometry: props.geometry })
+    }
+    sendInput()
+  })
 
-  const statusSegments: Segment[] = props.isSolved
+  surface.onPointer(event => {
+    if (event.type !== 'down') return
+    const action = layout.actionAt(event.x, event.y)
+    if (!action) return send({ type: 'focus', geometry: props.geometry })
+
+    surface.setState({ selected: action.key })
+    const message: ControlsMessage = action.type === 'new'
+      ? { type: 'new', geometry: props.geometry }
+      : { type: 'digit', digit: action.digit, geometry: props.geometry }
+    send(message)
+  })
+
+  const canvas = createCanvas(layout.width, layout.height, PAPER)
+  drawFrame(canvas, WOOD)
+  const innerWidth = layout.width - 2
+  const statusSegments: StatusSegment[] = props.isSolved
     ? [{ text: 'Solved!', color: '#245a2c', bold: true }]
     : [
-        { text: props.difficulty[0]!.toUpperCase() + props.difficulty.slice(1), color: WOOD },
+        { text: `${props.difficulty[0]!.toUpperCase()}${props.difficulty.slice(1)}`, color: WOOD },
         { text: ` \u00b7 ${props.filled}/81 filled`, color: PLAYER },
         ...(props.clashes > 0
           ? [{ text: ` \u00b7 ${props.clashes} in conflict`, color: CLASH }]
           : []),
       ]
-  const statusWidth = statusSegments.reduce((total, segment) => total + segment.text.length, 0)
-  let statusX = Math.floor((layout.innerWidth - statusWidth) / 2)
+  const statusWidth = statusSegments.reduce((width, segment) => width + segment.text.length, 0)
+  let statusX = 1 + Math.floor((innerWidth - statusWidth) / 2)
   for (const segment of statusSegments) {
     for (let index = 0; index < segment.text.length; index++) {
-      put(statusX + index, 0, {
+      setCell(canvas, statusX + index, layout.statusY, {
         character: segment.text[index]!,
         color: segment.color,
         backgroundColor: PAPER,
@@ -95,112 +93,78 @@ const Controls: ClientModule<ControlsProps, ControlsState> = (props, surface) =>
     statusX += segment.text.length
   }
 
-  paintLine(0, 1, layout.innerWidth, '\u2500')
+  if (!props.keyboardActive) {
+    writeCentered(
+      canvas,
+      'click the board to use the keyboard',
+      1,
+      layout.hintY,
+      innerWidth,
+      1,
+      WOOD,
+      PAPER,
+    )
+  }
 
-  const keypadX = layout.keypadX - 1
-  const keypadY = layout.keypadY - 1
-  const keypadDigits = [
+  horizontalLine(canvas, 1, layout.statusRuleY, innerWidth, '\u2500', FINE_LINE, PAPER)
+
+  const paintTile = (x: number, y: number, width: number, label: string, key: string) => {
+    const backgroundColor = selected === key ? CURSOR : PAPER
+    const color = selected === key ? GIVEN : PLAYER
+    fillRect(canvas, x, y, width, layout.tileHeight, color, backgroundColor, ' ', true)
+    writeCentered(canvas, label, x, y, width, layout.tileHeight, color, backgroundColor, true)
+  }
+
+  const digits = [
     [7, 8, 9],
     [4, 5, 6],
     [1, 2, 3],
   ]
 
-  for (let row = 0; row < keypadDigits.length; row++) {
-    const y = keypadY + row * (layout.tileHeight + 1)
+  for (let row = 0; row < digits.length; row++) {
     for (let col = 0; col < 3; col++) {
-      const digit = keypadDigits[row]![col]!
-      const x = keypadX + col * (layout.tileWidth + 1)
-      paintTile(x, y, layout.tileWidth, String(digit), `digit:${digit}`)
-      if (col < 2) {
-        for (let dy = 0; dy < layout.tileHeight; dy++) {
-          put(x + layout.tileWidth, y + dy, {
-            character: '\u2502',
-            color: FINE_LINE,
-            backgroundColor: PAPER,
-            bold: false,
-          })
-        }
-      }
+      const digit = digits[row]![col]!
+      const position = layout.tilePosition(row, col)
+      paintTile(position.x, position.y, layout.tileWidth, String(digit), `digit:${digit}`)
     }
-    paintLine(keypadX, y + layout.tileHeight, layout.keypadWidth, '\u2500')
   }
 
-  const clearY = keypadY + 3 * (layout.tileHeight + 1)
-  paintTile(keypadX, clearY, layout.keypadWidth, '0 Clear', 'digit:0')
-  paintLine(0, clearY + layout.tileHeight, layout.innerWidth, '\u2500')
+  paintTile(layout.keypadX, layout.clearY, layout.keypadWidth, '0 Clear', 'digit:0')
 
-  paintTile(0, layout.newY - 1, layout.innerWidth, 'New game', 'new')
-
-  surface.onPointer(event => {
-    if (event.type !== 'down') return
-    const action = layout.actionAt(event.x, event.y)
-    if (!action) {
-      surface.post({ type: 'focus' })
-      return
-    }
-
-    surface.setState({ selected: action.key })
-    const message: ControlsMessage = action.type === 'new'
-      ? { type: 'new', geometry: props.geometry }
-      : { type: 'digit', digit: action.digit, geometry: props.geometry }
-    surface.post(message)
-  })
-
-  const rows = pixels.map((line, y) => {
-    const runs: { pixel: Pixel; text: string }[] = []
-    for (const pixel of line) {
-      const previous = runs[runs.length - 1]
-      if (previous && previous.pixel.color === pixel.color &&
-        previous.pixel.backgroundColor === pixel.backgroundColor &&
-        previous.pixel.bold === pixel.bold) {
-        previous.text += pixel.character
-      } else {
-        runs.push({ pixel, text: pixel.character })
-      }
-    }
-
-    return (
-      <Box key={`row:${y}`} flexDirection="row" backgroundColor={PAPER}>
-        {runs.map((run, index) => (
-          <Text
-            key={`run:${y}:${index}`}
-            color={run.pixel.color}
-            backgroundColor={run.pixel.backgroundColor}
-            bold={run.pixel.bold || undefined}
-          >
-            {run.text}
-          </Text>
-        ))}
-      </Box>
+  for (let row = 0; row < 3; row++) {
+    horizontalLine(
+      canvas,
+      layout.keypadX,
+      layout.keypadRuleY(row),
+      layout.keypadWidth,
+      '\u2500',
+      FINE_LINE,
+      PAPER,
     )
-  })
+  }
 
-  const frameRow = (key: string) => (
-    <Text key={key} color={WOOD} backgroundColor={WOOD}>
-      {' '.repeat(layout.width)}
-    </Text>
-  )
+  const verticalXs = [
+    layout.keypadX + layout.tileWidth,
+    layout.keypadX + layout.tileWidth * 2 + 1,
+  ]
+  const lastRuleY = layout.clearY - 1
+  for (const x of verticalXs) {
+    verticalLine(canvas, x, layout.keypadY, lastRuleY - layout.keypadY + 1, '\u2502', FINE_LINE, PAPER)
+    for (let row = 0; row < 3; row++) {
+      const y = layout.keypadRuleY(row)
+      setCell(canvas, x, y, {
+        character: '\u253c',
+        color: FINE_LINE,
+        backgroundColor: PAPER,
+        bold: false,
+      })
+    }
+  }
 
-  const framedRows = rows.map((row, y) => (
-    <Box key={`framed:${y}`} flexDirection="row" backgroundColor={WOOD}>
-      <Text color={WOOD} backgroundColor={WOOD}> </Text>
-      {row}
-      <Text color={WOOD} backgroundColor={WOOD}> </Text>
-    </Box>
-  ))
+  horizontalLine(canvas, 1, layout.newRuleY, innerWidth, '\u2500', FINE_LINE, PAPER)
+  paintTile(1, layout.newY, innerWidth, 'New game', 'new')
 
-  return (
-    <Box
-      flexDirection="column"
-      width={layout.width}
-      height={layout.height}
-      backgroundColor={WOOD}
-    >
-      {frameRow('frame:top')}
-      {framedRows}
-      {frameRow('frame:bottom')}
-    </Box>
-  )
+  return toElement(surface.elements, canvas)
 }
 
 export default Controls

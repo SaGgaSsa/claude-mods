@@ -2,14 +2,25 @@ import type { ClientModule } from 'claude-code'
 
 import type { BoardAction, BoardProps } from '../types'
 import { geometryAtScale } from './geometry'
-import { CLASH, CLASH_BACKGROUND, CURSOR, FINE_LINE, GIVEN, MATCH, PAPER, PLAYER, WOOD } from './palette'
-
-type Pixel = {
-  character: string
-  color: string
-  backgroundColor: string
-  bold: boolean
-}
+import {
+  createCanvas,
+  drawFrame,
+  fillRect,
+  setCell,
+  toElement,
+  writeCentered,
+} from './canvas'
+import {
+  CLASH,
+  CLASH_BACKGROUND,
+  CURSOR,
+  FINE_LINE,
+  GIVEN,
+  MATCH,
+  PAPER,
+  PLAYER,
+  WOOD,
+} from './palette'
 
 const MOVES: Record<string, [number, number]> = {
   up: [-1, 0],
@@ -24,181 +35,121 @@ const MOVES: Record<string, [number, number]> = {
 
 const CLEAR_KEYS = new Set(['0', 'backspace', 'delete', ' '])
 
+type LineRule = { y: number; heavy: boolean }
+type ColumnRule = { x: number; heavy: boolean }
+
+const crossCharacter = (horizontalHeavy: boolean, verticalHeavy: boolean): string => {
+  if (horizontalHeavy && verticalHeavy) return '\u254b'
+  if (horizontalHeavy) return '\u253f'
+  if (verticalHeavy) return '\u2542'
+  return '\u253c'
+}
+
 const Board: ClientModule<BoardProps> = (props, surface) => {
-  const { Box, Text } = surface.elements
   const geometry = geometryAtScale(props.geometry.scale)
-  const send = (message: BoardAction) => surface.post({ ...message, geometry: props.geometry })
+  const send = (action: BoardAction) => surface.post({ ...action, geometry: props.geometry })
 
   surface.onKey(event => {
     const move = MOVES[event.key]
     if (move) return send({ type: 'move', rows: move[0], cols: move[1] })
     if (/^[1-9]$/.test(event.key)) return send({ type: 'digit', digit: Number(event.key) })
     if (CLEAR_KEYS.has(event.key)) return send({ type: 'digit', digit: 0 })
+    if (event.key === 'n') return send({ type: 'new' })
+    send({ type: 'input' })
   })
 
   surface.onPointer(event => {
     if (event.type !== 'down') return
     const index = geometry.cellAt(event.x, event.y)
-    if (index !== null) send({ type: 'select', index })
+    send(index === null ? { type: 'input' } : { type: 'select', index })
   })
 
+  const canvas = createCanvas(geometry.width, geometry.height, PAPER)
+  drawFrame(canvas, WOOD)
   const clashes = new Set(props.clashes)
   const selectedDigit = props.board[props.cursor] ?? '0'
-  const pixels: Pixel[][] = Array.from({ length: geometry.innerHeight }, () =>
-    Array.from({ length: geometry.innerWidth }, () => ({
-      character: ' ',
-      color: PAPER,
-      backgroundColor: PAPER,
-      bold: false,
-    })),
-  )
-
-  const backgroundAt = (row: number, col: number): string => {
-    const index = row * 9 + col
-    const digit = props.board[index] ?? '0'
-    if (index === props.cursor) return clashes.has(index) ? CLASH_BACKGROUND : CURSOR
-    return digit !== '0' && digit === selectedDigit ? MATCH : PAPER
-  }
-
-  const put = (x: number, y: number, pixel: Pixel) => {
-    if (x >= 0 && y >= 0 && x < geometry.innerWidth && y < geometry.innerHeight) {
-      pixels[y]![x] = pixel
-    }
-  }
-
-  const linePixel = (character: string, color: string): Pixel => ({
-    character,
-    color,
-    backgroundColor: PAPER,
-    bold: false,
-  })
 
   for (let row = 0; row < 9; row++) {
     for (let col = 0; col < 9; col++) {
       const index = row * 9 + col
       const digit = props.board[index] ?? '0'
       const isGiven = props.puzzle[index] !== '0'
-      const isCursor = index === props.cursor
       const isClash = clashes.has(index)
-      const backgroundColor = backgroundAt(row, col)
-      const color = isClash ? CLASH : isGiven ? GIVEN : digit === '0' ? FINE_LINE : PLAYER
       const position = geometry.cellPosition(row, col)
-      const x = position.x - 1
-      const y = position.y - 1
+      const backgroundColor = index === props.cursor
+        ? isClash ? CLASH_BACKGROUND : CURSOR
+        : digit !== '0' && digit === selectedDigit ? MATCH : PAPER
+      const color = isClash ? CLASH : isGiven ? GIVEN : PLAYER
+      const bold = isGiven || index === props.cursor
 
-      for (let dy = 0; dy < geometry.cellHeight; dy++) {
-        for (let dx = 0; dx < geometry.cellWidth; dx++) {
-          pixels[y + dy]![x + dx]!.backgroundColor = backgroundColor
-        }
-      }
-
-      const centerX = x + Math.floor(geometry.cellWidth / 2)
-      const centerY = y + Math.floor(geometry.cellHeight / 2)
-      put(centerX, centerY, {
-        character: digit === '0' ? ' ' : digit,
+      fillRect(
+        canvas,
+        position.x,
+        position.y,
+        geometry.cellWidth,
+        geometry.cellHeight,
         color,
         backgroundColor,
-        bold: isCursor || isGiven,
+        ' ',
+        bold,
+      )
+
+      if (digit !== '0') {
+        writeCentered(
+          canvas,
+          digit,
+          position.x,
+          position.y,
+          geometry.cellWidth,
+          geometry.cellHeight,
+          color,
+          backgroundColor,
+          bold,
+        )
+      }
+    }
+  }
+
+  const horizontalRules: LineRule[] = []
+  for (let row = 0; row < 8; row++) {
+    const y = geometry.cellPosition(row, 0).y + geometry.cellHeight
+    const heavy = row % 3 === 2
+    horizontalRules.push({ y, heavy })
+    const character = heavy ? '\u2501' : '\u2500'
+    const color = heavy ? WOOD : FINE_LINE
+    fillRect(canvas, 1, y, geometry.width - 2, 1, color, PAPER, character)
+  }
+
+  const verticalRules: ColumnRule[] = []
+  for (let col = 0; col < 8; col++) {
+    const heavy = col % 3 === 2
+    const position = geometry.cellPosition(0, col)
+    verticalRules.push({
+      x: position.x + geometry.cellWidth + (heavy ? 1 : 0),
+      heavy,
+    })
+  }
+
+  const firstY = geometry.cellPosition(0, 0).y
+  const lastPosition = geometry.cellPosition(8, 0)
+  const lastY = lastPosition.y + geometry.cellHeight - 1
+  for (const rule of verticalRules) {
+    for (let y = firstY; y <= lastY; y++) {
+      const horizontal = horizontalRules.find(candidate => candidate.y === y)
+      const character = horizontal
+        ? crossCharacter(horizontal.heavy, rule.heavy)
+        : rule.heavy ? '\u2503' : '\u2502'
+      const color = rule.heavy || horizontal?.heavy ? WOOD : FINE_LINE
+      setCell(canvas, rule.x, y, {
+        character,
+        color,
+        backgroundColor: PAPER,
+        bold: false,
       })
     }
   }
 
-  for (let row = 0; row < 9; row++) {
-    const y = geometry.cellPosition(row, 0).y - 1
-    for (let subrow = 0; subrow < geometry.cellHeight; subrow++) {
-      for (let col = 0; col < 8; col++) {
-        const x = geometry.cellPosition(row, col).x - 1 + geometry.cellWidth
-        if (col % 3 !== 2) {
-          put(x, y + subrow, linePixel('│', FINE_LINE))
-        } else {
-          put(x, y + subrow, linePixel(' ', PAPER))
-          put(x + 1, y + subrow, linePixel('┃', WOOD))
-          put(x + 2, y + subrow, linePixel(' ', PAPER))
-        }
-      }
-    }
-  }
-
-  for (let row = 0; row < 8; row++) {
-    const y = geometry.cellPosition(row, 0).y - 1 + geometry.cellHeight
-    const isBlock = row % 3 === 2
-    const character = isBlock ? '━' : '─'
-    const color = isBlock ? WOOD : FINE_LINE
-
-    for (let col = 0; col < 9; col++) {
-      const position = geometry.cellPosition(row, col)
-      const x = position.x - 1
-      for (let dx = 0; dx < geometry.cellWidth; dx++) {
-        put(x + dx, y, linePixel(character, color))
-      }
-
-      if (col === 8) continue
-      const separatorX = x + geometry.cellWidth
-      if (col % 3 !== 2) {
-        put(separatorX, y, linePixel(isBlock ? '┿' : '┼', color))
-      } else {
-        put(separatorX, y, linePixel(character, color))
-        put(separatorX + 1, y, linePixel(isBlock ? '╋' : '╂', WOOD))
-        put(separatorX + 2, y, linePixel(character, color))
-      }
-    }
-  }
-
-  const rows = pixels.map((line, y) => {
-    const runs: { pixel: Pixel; text: string }[] = []
-    for (const pixel of line) {
-      const previous = runs[runs.length - 1]
-      if (previous && previous.pixel.color === pixel.color &&
-        previous.pixel.backgroundColor === pixel.backgroundColor &&
-        previous.pixel.bold === pixel.bold) {
-        previous.text += pixel.character
-      } else {
-        runs.push({ pixel, text: pixel.character })
-      }
-    }
-
-    return (
-      <Box key={`row:${y}`} flexDirection="row" backgroundColor={PAPER}>
-        {runs.map((run, index) => (
-          <Text
-            key={`run:${y}:${index}`}
-            color={run.pixel.color}
-            backgroundColor={run.pixel.backgroundColor}
-            bold={run.pixel.bold || undefined}
-          >
-            {run.text}
-          </Text>
-        ))}
-      </Box>
-    )
-  })
-
-  const frameRow = (key: string) => (
-    <Text key={key} color={WOOD} backgroundColor={WOOD}>
-      {' '.repeat(geometry.width)}
-    </Text>
-  )
-
-  const framedRows = rows.map((row, y) => (
-    <Box key={`framed:${y}`} flexDirection="row" backgroundColor={WOOD}>
-      <Text color={WOOD} backgroundColor={WOOD}> </Text>
-      {row}
-      <Text color={WOOD} backgroundColor={WOOD}> </Text>
-    </Box>
-  ))
-
-  return (
-    <Box
-      flexDirection="column"
-      width={geometry.width}
-      height={geometry.height}
-      backgroundColor={WOOD}
-    >
-      {frameRow('frame:top')}
-      {framedRows}
-      {frameRow('frame:bottom')}
-    </Box>
-  )
+  return toElement(surface.elements, canvas)
 }
 
 export default Board

@@ -2,6 +2,7 @@ import type { ClientModule } from 'claude-code'
 
 import type { Difficulty, PickerMessage, PickerProps } from '../types'
 import { geometryAtScale, pickerHeight } from './geometry'
+import { createCanvas, drawFrame, fillRect, horizontalLine, toElement, writeCentered } from './canvas'
 import { CURSOR, FINE_LINE, GIVEN, PAPER, WOOD } from './palette'
 
 const DIFFICULTIES: { difficulty: Difficulty; key: string; label: string; givens: number }[] = [
@@ -13,117 +14,84 @@ const DIFFICULTIES: { difficulty: Difficulty; key: string; label: string; givens
 type PickerState = { selected: number }
 
 const Picker: ClientModule<PickerProps, PickerState> = (props, surface) => {
-  const { Box, Text } = surface.elements
   const geometry = geometryAtScale(props.geometry.scale)
-  const cardWidth = geometry.width
-  const innerWidth = geometry.innerWidth
-  const cancelIndex = DIFFICULTIES.length
-  const rowCount = cancelIndex + (props.hasGame ? 1 : 0)
-  const cardHeight = pickerHeight(rowCount)
+  const rowCount = DIFFICULTIES.length + (props.hasGame ? 1 : 0)
+  const height = pickerHeight(rowCount)
   const defaultDifficulty = props.difficulty ?? 'medium'
   const defaultIndex = DIFFICULTIES.findIndex(option => option.difficulty === defaultDifficulty)
   const selected = surface.state?.selected ?? Math.max(0, defaultIndex)
   const send = (message: PickerMessage) => surface.post(message)
-  const choose = (difficulty: Difficulty) => send({ type: 'choose', difficulty })
-  const cancel = () => send({ type: 'cancel' })
 
-  const selectRow = (index: number) => {
-    if (index < cancelIndex) choose(DIFFICULTIES[index]!.difficulty)
-    else if (props.hasGame && index === cancelIndex) cancel()
+  const chooseRow = (index: number) => {
+    const option = DIFFICULTIES[index]
+    if (option) return send({ type: 'choose', difficulty: option.difficulty })
+    if (props.hasGame && index === DIFFICULTIES.length) send({ type: 'cancel' })
   }
 
   surface.onKey(event => {
     const direct = DIFFICULTIES.find(option => option.key === event.key)
-    if (direct) return choose(direct.difficulty)
-    if (event.key === 'c' && props.hasGame) return cancel()
+    if (direct) return chooseRow(DIFFICULTIES.indexOf(direct))
+    if (event.key === 'c' && props.hasGame) return send({ type: 'cancel' })
 
-    const delta = event.key === 'up' || event.key === 'w'
-      ? -1
-      : event.key === 'down' || event.key === 's' ? 1 : 0
-    if (delta !== 0) {
-      surface.setState({ selected: (selected + delta + rowCount) % rowCount })
-      return
+    if (/^[1-9]$/.test(event.key)) {
+      return send({ type: 'digit', digit: Number(event.key) })
+    }
+    if (['0', 'backspace', 'delete', ' '].includes(event.key)) {
+      return send({ type: 'digit', digit: 0 })
     }
 
-    if (event.key === 'return' || event.key === 'enter') selectRow(selected)
+    const previous = ['up', 'w', 'left', 'a'].includes(event.key)
+    const next = ['down', 's', 'right', 'd'].includes(event.key)
+    if (previous || next) {
+      const delta = previous ? -1 : 1
+      surface.setState({ selected: (selected + delta + rowCount) % rowCount })
+      return send({ type: 'input' })
+    }
+
+    if (event.key === 'return' || event.key === 'enter') chooseRow(selected)
+    else send({ type: 'input' })
   })
 
   surface.onPointer(event => {
     if (event.type !== 'down') return
-    const index = geometry.pickerRowAt(event.x, event.y, rowCount, cardHeight)
-    if (index !== null) selectRow(index)
+    const index = geometry.pickerRowAt(event.x, event.y, rowCount, height)
+    if (index === null) send({ type: 'input' })
+    else chooseRow(index)
   })
 
-  const centeredText = (value: string): string => {
-    const left = Math.max(0, Math.floor((innerWidth - value.length) / 2))
-    return `${' '.repeat(left)}${value}`.padEnd(innerWidth)
-  }
-
-  const row = (index: number, key: string, label: string, givens?: number) => {
-    const isSelected = selected === index
-    const text = givens === undefined
-      ? `${key}  ${label}`
-      : `${key}  ${label.padEnd(8)} ${givens} given`
-
-    return (
-      <Text
-        key={`row:${key}`}
-        bold={isSelected}
-        color={isSelected ? GIVEN : WOOD}
-        backgroundColor={isSelected ? CURSOR : PAPER}
-      >
-        {centeredText(text)}
-      </Text>
-    )
-  }
-
-  const separator = () => (
-    <Text color={FINE_LINE} backgroundColor={PAPER}>{'─'.repeat(innerWidth)}</Text>
+  const canvas = createCanvas(geometry.width, height, PAPER)
+  drawFrame(canvas, WOOD)
+  const innerWidth = geometry.width - 2
+  const title = 'Choose a difficulty'
+  writeCentered(canvas, title, 1, geometry.pickerTitleY, innerWidth, 1, WOOD, PAPER, true)
+  horizontalLine(
+    canvas,
+    1,
+    geometry.pickerTitleRuleY,
+    innerWidth,
+    '\u2500',
+    FINE_LINE,
+    PAPER,
   )
 
-  const rows = [
-    <Text key="title" bold color={WOOD} backgroundColor={PAPER}>
-      {centeredText('Choose a difficulty')}
-    </Text>,
-    separator(),
-    row(0, DIFFICULTIES[0]!.key, DIFFICULTIES[0]!.label, DIFFICULTIES[0]!.givens),
-    separator(),
-    row(1, DIFFICULTIES[1]!.key, DIFFICULTIES[1]!.label, DIFFICULTIES[1]!.givens),
-    separator(),
-    row(2, DIFFICULTIES[2]!.key, DIFFICULTIES[2]!.label, DIFFICULTIES[2]!.givens),
-  ]
-  if (props.hasGame) {
-    rows.push(separator(), row(cancelIndex, 'c', 'Cancel'))
+  for (let index = 0; index < rowCount; index++) {
+    const y = geometry.pickerRowY(index)
+    const option = DIFFICULTIES[index]
+    const key = option?.key ?? 'c'
+    const label = option
+      ? `${key}  ${option.label.padEnd(8)} ${option.givens} given`
+      : 'c  Cancel'
+    const backgroundColor = selected === index ? CURSOR : PAPER
+    const color = selected === index ? GIVEN : WOOD
+
+    fillRect(canvas, 1, y, innerWidth, 1, color, backgroundColor, ' ', selected === index)
+    writeCentered(canvas, label, 1, y, innerWidth, 1, color, backgroundColor, selected === index)
+    if (index < rowCount - 1) {
+      horizontalLine(canvas, 1, y + 1, innerWidth, '\u2500', FINE_LINE, PAPER)
+    }
   }
 
-  const frameRow = (key: string) => (
-    <Text key={key} color={WOOD} backgroundColor={WOOD}>
-      {' '.repeat(cardWidth)}
-    </Text>
-  )
-
-  const framedRows = rows.map((content, index) => (
-    <Box key={`framed:${index}`} flexDirection="row" backgroundColor={WOOD}>
-      <Text color={WOOD} backgroundColor={WOOD}> </Text>
-      <Box flexDirection="row" width={innerWidth} backgroundColor={PAPER}>
-        {content}
-      </Box>
-      <Text color={WOOD} backgroundColor={WOOD}> </Text>
-    </Box>
-  ))
-
-  return (
-    <Box
-      flexDirection="column"
-      width={cardWidth}
-      height={cardHeight}
-      backgroundColor={WOOD}
-    >
-      {frameRow('frame:top')}
-      {framedRows}
-      {frameRow('frame:bottom')}
-    </Box>
-  )
+  return toElement(surface.elements, canvas)
 }
 
 export default Picker
