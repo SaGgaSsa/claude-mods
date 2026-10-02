@@ -1,11 +1,21 @@
 import { atom, read, update } from 'claude-code'
-import type { EngineInterface, Register } from 'claude-code'
+import type { EngineInterface, Register, RenderElement } from 'claude-code'
 
-import type { BoardMessage, BoardProps, Difficulty, SudokuGame } from '../types'
+import type {
+  BoardMessage,
+  BoardProps,
+  Difficulty,
+  GeometryProps,
+  PickerMessage,
+  PickerProps,
+  SudokuGame,
+} from '../types'
 import { conflicts, moveCursor, newGame, setDigit } from './sudoku'
+import { boardContentHeight, geometryForPanel, pickerHeight } from './geometry'
 
 const PANE = 'sudoku'
 const BOARD = 'board'
+const PICKER = 'picker'
 const game = atom({ plugin: 'sudoku', key: 'game' } as const, null)
 const selectingDifficulty = atom(
   { plugin: 'sudoku', key: 'selectingDifficulty' } as const,
@@ -34,6 +44,7 @@ const change = async ($: EngineInterface, fn: (current: SudokuGame) => SudokuGam
 
 const showDifficultyPicker = async ($: EngineInterface) => {
   await update($, selectingDifficulty, () => true)
+  await focusPicker($)
 }
 
 const chooseDifficulty = async ($: EngineInterface, difficulty: Difficulty) => {
@@ -41,23 +52,30 @@ const chooseDifficulty = async ($: EngineInterface, difficulty: Difficulty) => {
   await update($, game, () => fresh)
   await save($, fresh)
   await update($, selectingDifficulty, () => false)
+  await $.ui.focus({ requestId: PANE, key: BOARD }).catch(() => undefined)
 }
 
 const cancelDifficultyPicker = async ($: EngineInterface) => {
   await update($, selectingDifficulty, () => false)
+  await $.ui.focus({ requestId: PANE, key: BOARD }).catch(() => undefined)
+}
+
+const focusPicker = async ($: EngineInterface) => {
+  await $.ui.focus({ requestId: PANE, key: PICKER }).catch(() => undefined)
 }
 
 const openPane = async ($: EngineInterface) => {
   await $.ui.open({ id: PANE, title: 'Sudoku', focus: true, rows: 30, columns: 48 })
-  // Hand the keys to the board when the surface allows it; a click does too.
-  await $.ui.focus({ requestId: PANE, key: BOARD }).catch(() => undefined)
+  const key = await read($, selectingDifficulty) ? PICKER : BOARD
+  await $.ui.focus({ requestId: PANE, key }).catch(() => undefined)
 }
 
-const boardProps = (current: SudokuGame): BoardProps => ({
+const boardProps = (current: SudokuGame, geometry: GeometryProps): BoardProps => ({
   puzzle: current.puzzle,
   board: current.board,
   cursor: current.cursor,
   clashes: [...conflicts(current.board)],
+  geometry,
 })
 
 const applyMessage = (current: SudokuGame, message: BoardMessage): SudokuGame => {
@@ -69,6 +87,11 @@ const applyMessage = (current: SudokuGame, message: BoardMessage): SudokuGame =>
     case 'digit':
       return setDigit(current, message.digit)
   }
+}
+
+const applyPickerMessage = async ($: EngineInterface, message: PickerMessage) => {
+  if (message.type === 'choose') await chooseDifficulty($, message.difficulty)
+  else await cancelDifficultyPicker($)
 }
 
 const MOVES = [
@@ -111,9 +134,15 @@ export const register: Register = on => {
 
   // Keys and clicks on the board arrive here; they never reach the prompt.
   on('ui.message', { requestId: PANE, element: BOARD }, async ($, e) => {
-    const next = await change($, current => applyMessage(current, e.data as BoardMessage))
+    const message = e.data as BoardMessage
+    const next = await change($, current => applyMessage(current, message))
 
-    return next ? { props: boardProps(next) } : {}
+    return next ? { props: boardProps(next, message.geometry) } : {}
+  })
+
+  on('ui.message', { requestId: PANE, element: PICKER }, async ($, e) => {
+    await applyPickerMessage($, e.data as PickerMessage)
+    return {}
   })
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
@@ -121,9 +150,49 @@ export const register: Register = on => {
     const { Box, Text, Button } = elements
     const current = await read($, game)
     const choosingDifficulty = await read($, selectingDifficulty)
+    const bodyRows = e.props.scroll?.bodyRows
+    const bodyColumns = e.props.bodyColumns
+    const geometry = geometryForPanel(bodyColumns, bodyRows)
+
+    const centerContent = (
+      content: RenderElement,
+      contentHeight: number,
+      contentWidth: number,
+    ): RenderElement => {
+      const centerVertically = typeof bodyRows === 'number' && bodyRows > contentHeight
+      const centerHorizontally = typeof bodyColumns === 'number' && bodyColumns > contentWidth
+      if (!centerVertically && !centerHorizontally) return content
+
+      return (
+        <Box
+          flexDirection="column"
+          height={centerVertically ? bodyRows : undefined}
+          width={centerHorizontally ? bodyColumns : undefined}
+          justifyContent={centerVertically ? 'center' : undefined}
+          alignItems={centerHorizontally ? 'center' : undefined}
+        >
+          {content}
+        </Box>
+      )
+    }
 
     if (!current || choosingDifficulty) {
-      return (
+      const Client = 'Client' in elements ? elements.Client : undefined
+      const pickerProps: PickerProps = {
+        difficulty: current?.difficulty ?? null,
+        hasGame: current !== null,
+        geometry,
+      }
+      const cardHeight = pickerHeight(current ? 4 : 3)
+      const picker = Client ? (
+        <Client
+          key={PICKER}
+          module="./picker.tsx"
+          props={pickerProps}
+          width={geometry.width}
+          height={cardHeight}
+        />
+      ) : (
         <Box flexDirection="column" rowGap={1}>
           <Text bold>Choose a difficulty</Text>
           {DIFFICULTIES.map(option => (
@@ -148,9 +217,12 @@ export const register: Register = on => {
           )}
         </Box>
       )
+      const fallbackHeight = current ? 9 : 7
+      const contentHeight = Client ? cardHeight : fallbackHeight
+      return centerContent(picker, contentHeight, geometry.width)
     }
 
-    const props = boardProps(current)
+    const props = boardProps(current, geometry)
     const filled = [...current.board].filter(digit => digit !== '0').length
     const enter = (digit: number) => () => change($, g => setDigit(g, digit))
     const move = (rows: number, cols: number) => () => change($, g => moveCursor(g, rows, cols))
@@ -187,18 +259,21 @@ export const register: Register = on => {
 
     // Only the terminal draws a Client; elsewhere the keypad still plays.
     const Client = 'Client' in elements ? elements.Client : undefined
-    const board = Client ? (
-      <Client key={BOARD} module="./board.tsx" props={props} width={41} height={19} />
-    ) : (
-      <Text dimColor>The board needs the terminal.</Text>
-    )
-
-    return (
+    const content = (
       <Box flexDirection="column">
-        {board}
+        {Client ? (
+          <Client
+            key={BOARD}
+            module="./board.tsx"
+            props={props}
+            width={geometry.width}
+            height={geometry.height}
+          />
+        ) : (
+          <Text dimColor>The board needs the terminal.</Text>
+        )}
         <Text> </Text>
         {status}
-        <Text dimColor>Click the board for the keyboard: arrows, 1-9, 0/⌫ · Esc releases it</Text>
         <Text> </Text>
         <Box flexDirection="row" columnGap={4}>
           <Box flexDirection="column">
@@ -232,5 +307,7 @@ export const register: Register = on => {
         </Box>
       </Box>
     )
+    const contentHeight = Client ? boardContentHeight(geometry) : 9
+    return centerContent(content, contentHeight, geometry.width)
   })
 }

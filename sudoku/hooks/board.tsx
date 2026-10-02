@@ -1,26 +1,15 @@
 import type { ClientModule } from 'claude-code'
 
-import type { BoardMessage, BoardProps } from '../types'
+import type { BoardAction, BoardProps } from '../types'
+import { geometryAtScale } from './geometry'
+import { CLASH, CLASH_BACKGROUND, CURSOR, FINE_LINE, GIVEN, MATCH, PAPER, PLAYER, WOOD } from './palette'
 
-const PAPER = '#f7ecd0'
-const FINE_LINE = '#c9b48a'
-const WOOD = '#5b3a1e'
-const GIVEN = '#2b1d0e'
-const PLAYER = '#7a6a58'
-const CURSOR = '#e2a93b'
-const MATCH = '#f3d77e'
-const CLASH = '#b03a2e'
-const CLASH_BACKGROUND = '#edb0a8'
-
-const FRAME = 1
-const BOX_WIDTH = 11
-const BOX_STRIDE = BOX_WIDTH + 3
-const CELL_STRIDE = 4
-const BOARD_HEIGHT = 17
-const SEGMENTS = [0, 1, 2]
-// Joints meet the fine '│' inside a block and the heavy '┃' between blocks.
-const ROW_SEPARATOR = SEGMENTS.map(() => '───┼───┼───').join('─╂─')
-const BLOCK_SEPARATOR = SEGMENTS.map(() => '━━━┿━━━┿━━━').join('━╋━')
+type Pixel = {
+  character: string
+  color: string
+  backgroundColor: string
+  bold: boolean
+}
 
 const MOVES: Record<string, [number, number]> = {
   up: [-1, 0],
@@ -35,25 +24,27 @@ const MOVES: Record<string, [number, number]> = {
 
 const CLEAR_KEYS = new Set(['0', 'backspace', 'delete', ' '])
 
-// The framed board is 41 by 19; its inner grid is 39 by 17.
-const rowAt = (screenY: number): number => {
-  const y = screenY - FRAME
-  const line = y % 6
-  if (y < 0 || y >= BOARD_HEIGHT || line === 5) return -1
-  return Math.floor(y / 6) * 3 + Math.min(2, Math.round(line / 2))
-}
-
-const colAt = (screenX: number): number => {
-  const x = screenX - FRAME
-  const box = Math.floor(x / BOX_STRIDE)
-  const within = x - box * BOX_STRIDE
-  if (box < 0 || box > 2 || within >= BOX_WIDTH) return -1
-  return box * 3 + Math.floor(within / CELL_STRIDE)
+const QUADRANTS: Record<number, string> = {
+  1: '▘',
+  2: '▝',
+  3: '▀',
+  4: '▖',
+  5: '▌',
+  6: '▞',
+  7: '▛',
+  8: '▗',
+  9: '▚',
+  10: '▐',
+  11: '▜',
+  12: '▄',
+  13: '▙',
+  14: '▟',
 }
 
 const Board: ClientModule<BoardProps> = (props, surface) => {
   const { Box, Text } = surface.elements
-  const send = (message: BoardMessage) => surface.post(message)
+  const geometry = geometryAtScale(props.geometry.scale)
+  const send = (message: BoardAction) => surface.post({ ...message, geometry: props.geometry })
 
   surface.onKey(event => {
     const move = MOVES[event.key]
@@ -64,79 +55,226 @@ const Board: ClientModule<BoardProps> = (props, surface) => {
 
   surface.onPointer(event => {
     if (event.type !== 'down') return
-    const row = rowAt(event.y)
-    const col = colAt(event.x)
-    if (row >= 0 && col >= 0) send({ type: 'select', index: row * 9 + col })
+    const index = geometry.cellAt(event.x, event.y)
+    if (index !== null) send({ type: 'select', index })
   })
 
   const clashes = new Set(props.clashes)
   const selectedDigit = props.board[props.cursor] ?? '0'
+  const pixels: Pixel[][] = Array.from({ length: geometry.innerHeight }, () =>
+    Array.from({ length: geometry.innerWidth }, () => ({
+      character: ' ',
+      color: PAPER,
+      backgroundColor: PAPER,
+      bold: false,
+    })),
+  )
 
-  const cell = (index: number) => {
+  const backgroundAt = (row: number, col: number): string => {
+    const index = row * 9 + col
     const digit = props.board[index] ?? '0'
-    const isGiven = props.puzzle[index] !== '0'
     const isCursor = index === props.cursor
-    const isMatch = digit !== '0' && digit === selectedDigit
-    const isClash = clashes.has(index)
-    const backgroundColor = isCursor
-      ? isClash ? CLASH_BACKGROUND : CURSOR
-      : isMatch ? MATCH : PAPER
-    const color = isClash ? CLASH : isGiven ? GIVEN : digit === '0' ? FINE_LINE : PLAYER
-
-    return (
-      <Text bold={isCursor || isGiven} color={color} backgroundColor={backgroundColor}>
-        {` ${digit === '0' ? ' ' : digit} `}
-      </Text>
-    )
+    if (isCursor) return clashes.has(index) ? CLASH_BACKGROUND : CURSOR
+    return digit !== '0' && digit === selectedDigit ? MATCH : PAPER
   }
 
-  const row = (r: number) => (
-    <Box key={`row:${r}`} flexDirection="row" backgroundColor={PAPER}>
-      {SEGMENTS.map(b => (
-        <Box key={`block:${r}:${b}`} flexDirection="row" backgroundColor={PAPER}>
-          {b > 0 && <Text color={WOOD} backgroundColor={PAPER}> ┃ </Text>}
-          <Box flexDirection="row" backgroundColor={PAPER}>
-            {cell(r * 9 + b * 3)}
-            <Text color={FINE_LINE} backgroundColor={PAPER}>│</Text>
-            {cell(r * 9 + b * 3 + 1)}
-            <Text color={FINE_LINE} backgroundColor={PAPER}>│</Text>
-            {cell(r * 9 + b * 3 + 2)}
-          </Box>
-        </Box>
-      ))}
-    </Box>
-  )
+  const put = (x: number, y: number, pixel: Pixel) => {
+    if (x >= 0 && y >= 0 && x < geometry.innerWidth && y < geometry.innerHeight) {
+      pixels[y]![x] = pixel
+    }
+  }
 
-  const separator = (block: boolean) => (
-    <Text color={block ? WOOD : FINE_LINE} backgroundColor={PAPER}>
-      {block ? BLOCK_SEPARATOR : ROW_SEPARATOR}
-    </Text>
-  )
+  const linePixel = (character: string, color: string, backgroundColor = PAPER): Pixel => ({
+    character,
+    color,
+    backgroundColor,
+    bold: false,
+  })
+
+  const verticalPixel = (left: string, right: string): Pixel => {
+    if (left === right) {
+      return linePixel(left === PAPER ? '│' : ' ', left === PAPER ? FINE_LINE : left)
+    }
+    return left === PAPER
+      ? linePixel('▐', right, left)
+      : linePixel('▌', left, right)
+  }
+
+  const horizontalPixel = (
+    above: string,
+    below: string,
+    character: string,
+    color: string,
+  ): Pixel => {
+    if (above === below) {
+      return linePixel(above === PAPER ? character : ' ', above === PAPER ? color : above)
+    }
+    return linePixel('▀', above, below)
+  }
+
+  const blockHorizontalPixel = (above: string, below: string): Pixel => {
+    if (above === below) return linePixel('━', WOOD, above)
+    if (above !== PAPER) return linePixel('▀', above, WOOD)
+    return linePixel('▄', below, WOOD)
+  }
+
+  const crossingPixel = (
+    corners: [string, string, string, string],
+    baseColor: string,
+    standard: string,
+  ): Pixel => {
+    const colored = corners.filter(color => color !== PAPER)
+    if (colored.length === 0) return linePixel(standard, baseColor)
+
+    const accent = colored.sort((a, b) =>
+      corners.filter(color => color === b).length - corners.filter(color => color === a).length,
+    )[0]!
+    const mask = corners.reduce((value, color, index) =>
+      color === accent ? value | (1 << index) : value,
+    0)
+    if (mask === 15) return linePixel(' ', accent, accent)
+    return linePixel(QUADRANTS[mask] ?? standard, accent, baseColor)
+  }
+
+  for (let row = 0; row < 9; row++) {
+    for (let col = 0; col < 9; col++) {
+      const index = row * 9 + col
+      const digit = props.board[index] ?? '0'
+      const isGiven = props.puzzle[index] !== '0'
+      const isCursor = index === props.cursor
+      const isClash = clashes.has(index)
+      const backgroundColor = backgroundAt(row, col)
+      const color = isClash ? CLASH : isGiven ? GIVEN : digit === '0' ? FINE_LINE : PLAYER
+      const position = geometry.cellPosition(row, col)
+      const x = position.x - 1
+      const y = position.y - 1
+
+      for (let dy = 0; dy < geometry.cellHeight; dy++) {
+        for (let dx = 0; dx < geometry.cellWidth; dx++) {
+          put(x + dx, y + dy, linePixel(' ', FINE_LINE, backgroundColor))
+        }
+      }
+
+      const centerX = x + Math.floor(geometry.cellWidth / 2)
+      const centerY = y + Math.floor(geometry.cellHeight / 2)
+      put(centerX, centerY, {
+        character: digit === '0' ? ' ' : digit,
+        color,
+        backgroundColor,
+        bold: isCursor || isGiven,
+      })
+    }
+  }
+
+  for (let row = 0; row < 9; row++) {
+    const y = geometry.cellPosition(row, 0).y - 1
+    for (let subrow = 0; subrow < geometry.cellHeight; subrow++) {
+      for (let col = 0; col < 8; col++) {
+        const x = geometry.cellPosition(row, col).x - 1 + geometry.cellWidth
+        if (col % 3 !== 2) {
+          put(x, y + subrow, verticalPixel(backgroundAt(row, col), backgroundAt(row, col + 1)))
+        } else {
+          const left = backgroundAt(row, col)
+          const right = backgroundAt(row, col + 1)
+          put(x, y + subrow, linePixel(' ', left, left))
+          put(x + 1, y + subrow, linePixel('┃', WOOD))
+          put(x + 2, y + subrow, linePixel(' ', right, right))
+        }
+      }
+    }
+  }
+
+  for (let row = 0; row < 8; row++) {
+    const y = geometry.cellPosition(row, 0).y - 1 + geometry.cellHeight
+    const isBlock = row % 3 === 2
+    const character = isBlock ? '━' : '─'
+    const color = isBlock ? WOOD : FINE_LINE
+
+    for (let col = 0; col < 9; col++) {
+      const position = geometry.cellPosition(row, col)
+      const x = position.x - 1
+      const above = backgroundAt(row, col)
+      const below = backgroundAt(row + 1, col)
+      for (let dx = 0; dx < geometry.cellWidth; dx++) {
+        const pixel = isBlock
+          ? blockHorizontalPixel(above, below)
+          : horizontalPixel(above, below, character, color)
+        put(x + dx, y, pixel)
+      }
+
+      if (col === 8) continue
+      const separatorX = x + geometry.cellWidth
+      if (col % 3 !== 2) {
+        const corners: [string, string, string, string] = [
+          above,
+          backgroundAt(row, col + 1),
+          below,
+          backgroundAt(row + 1, col + 1),
+        ]
+        put(
+          separatorX,
+          y,
+          crossingPixel(corners, color, isBlock ? '┿' : '┼'),
+        )
+      } else {
+        const rightAbove = backgroundAt(row, col + 1)
+        const rightBelow = backgroundAt(row + 1, col + 1)
+        const leftGap = isBlock
+          ? blockHorizontalPixel(above, below)
+          : horizontalPixel(above, below, character, color)
+        const rightGap = isBlock
+          ? blockHorizontalPixel(rightAbove, rightBelow)
+          : horizontalPixel(rightAbove, rightBelow, character, color)
+        put(separatorX, y, leftGap)
+        put(
+          separatorX + 1,
+          y,
+          crossingPixel([above, rightAbove, below, rightBelow], WOOD, isBlock ? '╋' : '╂'),
+        )
+        put(separatorX + 2, y, rightGap)
+      }
+    }
+  }
+
+  const rows = pixels.map((line, y) => {
+    const runs: { pixel: Pixel; text: string }[] = []
+    for (const pixel of line) {
+      const previous = runs[runs.length - 1]
+      if (previous && previous.pixel.color === pixel.color &&
+        previous.pixel.backgroundColor === pixel.backgroundColor &&
+        previous.pixel.bold === pixel.bold) {
+        previous.text += pixel.character
+      } else {
+        runs.push({ pixel, text: pixel.character })
+      }
+    }
+
+    return (
+      <Box key={`line:${y}`} flexDirection="row" backgroundColor={PAPER}>
+        {runs.map((run, index) => (
+          <Text
+            key={`run:${y}:${index}`}
+            color={run.pixel.color}
+            backgroundColor={run.pixel.backgroundColor}
+            bold={run.pixel.bold || undefined}
+          >
+            {run.text}
+          </Text>
+        ))}
+      </Box>
+    )
+  })
 
   return (
     <Box
       flexDirection="column"
+      width={geometry.width}
+      height={geometry.height}
       borderStyle="bold"
       borderColor={WOOD}
       backgroundColor={PAPER}
     >
-      {row(0)}
-      {separator(false)}
-      {row(1)}
-      {separator(false)}
-      {row(2)}
-      {separator(true)}
-      {row(3)}
-      {separator(false)}
-      {row(4)}
-      {separator(false)}
-      {row(5)}
-      {separator(true)}
-      {row(6)}
-      {separator(false)}
-      {row(7)}
-      {separator(false)}
-      {row(8)}
+      {rows}
     </Box>
   )
 }
