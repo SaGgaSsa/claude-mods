@@ -87,7 +87,7 @@ A quiz-show prize ladder in the band above the prompt, played only with clicks.
   and $32,000; `Walk away` keeps what you have won so far.
 - Click an answer box to lock it in. After a short suspense the right answer
   turns green and a wrong pick red.
-- Clawd hosts: he bounces and waves while the question types itself out, then
+- Clawd hosts: it bounces and waves while the question types itself out, then
   reacts to your answer. The answers appear one by one; the board
   keeps the terminal's own background.
 - Questions come from `trivia/questions.json`, in the format the
