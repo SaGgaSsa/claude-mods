@@ -10,6 +10,11 @@
       "name": "sudoku",
       "source": "./sudoku",
       "description": "A sudoku in a Claude Code pane, saved per workspace folder"
+    },
+    {
+      "name": "trivia",
+      "source": "./trivia",
+      "description": "A quiz-show question ladder in the band above the prompt, played by clicking"
     }
   ]
 }

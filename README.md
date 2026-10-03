@@ -75,6 +75,29 @@ pick it up the next time you open Claude Code there.
 - The board uses a cream background, a brown frame, and warm colors for givens,
   entries, the selected cell and matching digits.
 
+## trivia
+
+A multiple-choice streak game in the band above the prompt, played only with clicks.
+
+```
+/trivia            # show or hide the band (also /trivia on, /trivia off)
+```
+
+- Questions come at random from the whole pool, without repeats, until the first
+  wrong answer. Each right answer adds one to the streak.
+- When a game ends, the right answer is revealed, then a final screen shows the
+  streak, the question you missed, a bar chart of the last games and a centered
+  `New game` button. The last 10 games and the best streak are kept across
+  sessions.
+- Click an answer box to lock it in. After a short suspense the right answer
+  turns green and a wrong pick red.
+- Clawd hosts: it bounces and waves while the question types itself out, then
+  reacts to your answer. The answers appear one by one; the board
+  keeps the terminal's own background.
+- Questions come from `trivia/questions.json`, in the format the
+  [Open Trivia DB](https://opentdb.com/) API returns. HTML entities are decoded
+  and true/false questions are skipped.
+
 ## Adding a mod
 
 1. Create `<mod>/` with `.claude-plugin/plugin.json`, `hooks/hooks.json` and
