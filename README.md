@@ -106,23 +106,28 @@ A multiple-choice streak game in the band above the prompt, played only with cli
 - Clawd hosts: it bounces and waves while the question types itself out, then
   reacts to your answer. The answers appear one by one; the board
   keeps the terminal's own background.
-- It ships with 1000 questions from [Open Trivia DB](https://opentdb.com/)
-  (CC BY-SA 4.0) in `trivia/questions.json`, in the format its API returns.
-  HTML entities are decoded and true/false questions are skipped.
+- It ships with 1000 questions from [The Trivia API](https://the-trivia-api.com/)
+  (CC BY-NC 4.0): 100 per category across ten categories (general knowledge,
+  geography, history, science, sport, music, film & TV, arts & literature,
+  society & culture, food & drink), each split 35% easy, 40% medium, 25% hard.
+  Only universal questions are kept: none tied to a region, none marked niche,
+  and none about US or UK states, presidents, leagues or TV.
 
 ### Changing the questions
 
-Edit `trivia/questions.json` by hand, or fetch more from the API with the script
-(Windows, from the repo root; up to 50 per batch, duplicates skipped):
+`trivia/questions.json` uses the format the Open Trivia DB API returns, so it can
+be edited by hand. To rebuild it from The Trivia API (Windows, from the repo
+root; it replaces the whole bank):
 
 ```
-powershell -ExecutionPolicy Bypass -File trivia/scripts/fetch-questions.ps1 -Batches 4
+powershell -ExecutionPolicy Bypass -File trivia/scripts/fetch-trivia-api.ps1
 ```
 
-`-Category <id>` and `-Difficulty easy|medium|hard` filter them; category ids are
-at https://opentdb.com/api_category.php. The bank is capped at 1000 questions:
-the script stops there and refuses to run on a full bank, so remove some first
-to make room. Restart Claude Code or run `/reload-plugins` to load the changes.
+`-PerCategory <n>` changes how many questions each category gets (the bank is
+capped at 1000). `trivia/scripts/fetch-questions.ps1` adds questions from
+[Open Trivia DB](https://opentdb.com/) instead; it skips duplicates, refuses to
+run on a full bank, and its questions lean on US topics and niche fandoms.
+Restart Claude Code or run `/reload-plugins` to load the changes.
 
 ## Adding a mod
 
