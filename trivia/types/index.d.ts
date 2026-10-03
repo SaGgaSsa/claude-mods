@@ -39,8 +39,15 @@ export type TriviaHistory = {
   games: { streak: number; at: number }[]
 }
 
+// What the Client sees of a game: only the current round, so its props stay small
+// however large the question bank is.
+export type StageGame = Omit<TriviaGame, 'rounds'> & {
+  round: TriviaRound | null
+  roundCount: number
+}
+
 export type TriviaProps = {
-  game: TriviaGame | null
+  game: StageGame | null
   error: string | null
   width: number
   best: number

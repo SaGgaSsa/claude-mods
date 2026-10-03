@@ -7,6 +7,7 @@ import type {
   TriviaMessage,
   TriviaQuestion,
   TriviaProps,
+  StageGame,
 } from '../types'
 import {
   addGame,
@@ -32,8 +33,14 @@ let history: TriviaHistory = emptyHistory()
 let latestResultIsBest = false
 let terminalResultRecorded = false
 
+export const stageGame = (game: TriviaGame | null): StageGame | null => {
+  if (!game) return null
+  const { rounds, ...rest } = game
+  return { ...rest, round: rounds[game.currentIndex] ?? null, roundCount: rounds.length }
+}
+
 const stageProps = (game: TriviaGame | null, width: number): TriviaProps => ({
-  game,
+  game: stageGame(game),
   error: bankError,
   width,
   best: history.best,

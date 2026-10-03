@@ -4,7 +4,6 @@ import type { TriviaLayout, TriviaPhase, TriviaProps, TriviaRect, TriviaView } f
 import type { ClawdLook } from './clawd'
 import { drawClawd } from './clawd'
 import {
-  currentRound,
   layout,
   wrapText,
 } from './trivia'
@@ -50,7 +49,7 @@ type AnimationStep = {
 const phaseOf = (props: TriviaProps): TriviaPhase => props.game?.phase ?? 'idle'
 const questionIndexOf = (props: TriviaProps): number => props.game?.currentIndex ?? -1
 const questionLengthOf = (props: TriviaProps): number => {
-  const round = props.game ? currentRound(props.game) : null
+  const round = props.game?.round ?? null
   return round ? Array.from(round.question).length : 0
 }
 
@@ -355,7 +354,7 @@ const drawStatus = (
   geometry: TriviaLayout,
 ) => {
   const game = props.game
-  const round = game ? currentRound(game) : null
+  const round = game?.round ?? null
   if (!game || game.phase === 'idle') {
     if (props.error) {
       writeText(canvas, truncate(`Error: ${props.error}`, geometry.width), 0, geometry.statusY, {
@@ -392,7 +391,7 @@ const drawStatus = (
   const status = phase === 'wrong' && round
     ? `Wrong — answer: ${String.fromCharCode(65 + round.correctIndex)}: ` +
       `${round.answers[round.correctIndex]}`
-    : `You answered all ${game.rounds.length} questions!`
+    : `You answered all ${game.roundCount} questions!`
   writeText(canvas, truncate(status, geometry.width), 0, geometry.statusY, {
     color: phase === 'wrong' ? '#efa19a' : SOFT_WHITE,
   })
@@ -480,7 +479,7 @@ const drawOutro = (
   const game = props.game
   if (!game) return
   const phase = game.phase
-  const round = currentRound(game)
+  const round = game.round
   // Same margin on both sides, so the text centers on the New game button and clears Clawd.
   const contentX = geometry.questionX
   const contentWidth = Math.max(1, geometry.width - 2 * contentX)
@@ -530,7 +529,7 @@ const drawStage = (props: TriviaProps, state: StageState) => {
   const canvas = createCanvas(geometry.width, geometry.height)
   const game = props.game
   const phase = phaseOf(props)
-  const round = game ? currentRound(game) : null
+  const round = game?.round ?? null
   drawHeader(canvas, props, phase, geometry)
 
   if (geometry.clawd) drawClawd(canvas, geometry.clawd, clawdLookFor(props, state))

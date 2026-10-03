@@ -16,6 +16,7 @@ import {
   reveal,
   startOrRestart,
 } from '../hooks/trivia'
+import { stageGame } from '../hooks/register'
 
 const fixedRandom = () => 0.37
 
@@ -223,7 +224,7 @@ test('loads, saves and displays streak history in the mounted band', async ($, o
   expect(initialProps.best).toBe(0)
   expect(initialProps.recent).toEqual(Array.from({ length: 10 }, () => 0))
   expect(initialProps.game?.phase).toBe('idle')
-  expect(initialProps.game?.rounds).toHaveLength(bank.length)
+  expect(initialProps.game?.roundCount).toBe(bank.length)
 
   const idleGrid = canvasOf(await ui.drawn({ in: 'stage' }))
   expectGridWidth(idleGrid, 60)
@@ -254,7 +255,7 @@ test('loads, saves and displays streak history in the mounted band', async ($, o
   await ui.advance(1_390)
 
   const askingGame = triviaProps(await ui.find({ key: 'stage' })).game!
-  const correctBox = geometry.answerBoxes[askingGame.rounds[0]!.correctIndex]!
+  const correctBox = geometry.answerBoxes[askingGame.round!.correctIndex]!
   await ui.pointer({
     type: 'down',
     x: correctBox.x + 2,
@@ -272,7 +273,7 @@ test('loads, saves and displays streak history in the mounted band', async ($, o
   await ui.advance(1_600)
   currentGame = triviaProps(await ui.find({ key: 'stage' })).game!
   expect(currentGame.currentIndex).toBe(1)
-  const wrongChoice = currentGame.rounds[1]!.correctIndex === 0 ? 1 : 0
+  const wrongChoice = currentGame.round!.correctIndex === 0 ? 1 : 0
   const wrongBox = geometry.answerBoxes[wrongChoice]!
   await ui.pointer({
     type: 'down',
@@ -292,7 +293,7 @@ test('loads, saves and displays streak history in the mounted band', async ($, o
   expect(terminalProps.newBest).toBe(true)
   const wrongGrid = canvasOf(await ui.drawn({ in: 'stage' }))
   expectGridWidth(wrongGrid, 60)
-  const correctAnswer = currentGame.rounds[currentGame.currentIndex]!
+  const correctAnswer = currentGame.round!
   const answerLabel = String.fromCharCode(65 + correctAnswer.correctIndex)
   expect(wrongGrid[4]!.join('')).not.toContain('Best')
   expect(wrongGrid[11]!.join('')).toContain(
@@ -348,7 +349,7 @@ test('loads, saves and displays streak history in the mounted band', async ($, o
 
   await ui.advance(1_600)
   const retryGame = triviaProps(await ui.find({ key: 'stage' })).game!
-  const retryRound = retryGame.rounds[0]!
+  const retryRound = retryGame.round!
   const retryWrong = retryRound.correctIndex === 0 ? 1 : 0
   const retryBox = layout(60).answerBoxes[retryWrong]!
   await ui.pointer({
@@ -438,7 +439,7 @@ test('shows the cleared outro in a 45-column band and starts a fresh game', asyn
   await ui.advance(1_600)
 
   const game = triviaProps(await ui.find({ key: 'stage' })).game!
-  const correctBox = geometry.answerBoxes[game.rounds[0]!.correctIndex]!
+  const correctBox = geometry.answerBoxes[game.round!.correctIndex]!
   await ui.pointer({
     type: 'down',
     x: correctBox.x + 2,
@@ -507,3 +508,19 @@ const expectGridWidth = (grid: string[][], width: number) => {
   expect(grid).toHaveLength(12)
   expect(grid.every(row => row.length === width)).toBe(true)
 }
+
+test('hands the Client only the current round, however large the bank is', () => {
+  const bank: TriviaQuestion[] = Array.from({ length: 5_000 }, (_, index) => ({
+    difficulty: 'easy',
+    category: 'Bulk',
+    question: `Bulk question number ${index} with some padding to look like a real one?`,
+    correctAnswer: `Right answer ${index}`,
+    incorrectAnswers: [`Wrong A ${index}`, `Wrong B ${index}`, `Wrong C ${index}`],
+  }))
+  const game = newGame(bank, fixedRandom)
+  const visible = stageGame(game)
+
+  expect(visible?.roundCount).toBe(5_000)
+  expect(visible?.round?.question).toBe(game.rounds[0]!.question)
+  expect(JSON.stringify(visible).length < 2_000).toBe(true)
+})
