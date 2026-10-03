@@ -10,6 +10,7 @@
 .NOTES
   The API returns at most 50 questions a request and allows one request every 5 seconds per IP.
   Questions already in the file (same text) are skipped. Category ids: https://opentdb.com/api_category.php
+  The bank is capped at 1000 questions: a full bank refuses the run, and a run stops at the cap.
 #>
 param(
   [ValidateRange(1, 50)] [int] $Amount = 50,
@@ -21,6 +22,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $api = 'https://opentdb.com'
+$limit = 1000
 
 # url3986 keeps the response ASCII, so Windows PowerShell can't garble accented text.
 function Decode([string] $value) {
@@ -42,16 +44,26 @@ $seen = @{}
 foreach ($entry in $results) { $seen[(Key $entry.question)] = $true }
 $before = $results.Count
 
+if ($before -ge $limit) {
+  Write-Host "The bank already has $before questions (limit $limit); nothing was added." -ForegroundColor Red
+  exit 1
+}
+
 # A session token keeps the API from sending the same question twice across batches.
 $token = (Invoke-RestMethod "$api/api_token.php?command=request").token
 
-$query = "amount=$Amount&type=multiple&encode=url3986&token=$token"
-if ($Category -gt 0) { $query += "&category=$Category" }
-if ($Difficulty) { $query += "&difficulty=$Difficulty" }
+$filters = "type=multiple&encode=url3986&token=$token"
+if ($Category -gt 0) { $filters += "&category=$Category" }
+if ($Difficulty) { $filters += "&difficulty=$Difficulty" }
 
 for ($batch = 1; $batch -le $Batches; $batch++) {
+  $room = $limit - $results.Count
+  if ($room -le 0) {
+    Write-Host "Reached the limit of $limit questions."
+    break
+  }
   if ($batch -gt 1) { Start-Sleep -Seconds 6 }
-  $response = Invoke-RestMethod "$api/api.php?$query"
+  $response = Invoke-RestMethod "$api/api.php?amount=$([Math]::Min($Amount, $room))&$filters"
 
   if ($response.response_code -eq 4) {
     Write-Host 'No more questions for these filters.'
@@ -68,6 +80,7 @@ for ($batch = 1; $batch -le $Batches; $batch++) {
 
   $added = 0
   foreach ($item in $response.results) {
+    if ($results.Count -ge $limit) { break }
     $question = Decode $item.question
     $key = Key $question
     if ($seen[$key]) { continue }
