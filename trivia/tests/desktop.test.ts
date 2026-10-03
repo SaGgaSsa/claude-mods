@@ -253,3 +253,98 @@ test('cleared Desktop games show the outro after the matching delay', async ($, 
     await ui.unmount()
   }
 })
+
+test('Desktop card corners pick answers while the gap and locked state do nothing', async ($, on) => {
+  mock.store(on, { history: { best: 0, games: [] }, seen: [] })
+  mock.clock(on, { now: 7_000 })
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('command.register', (_, e) => ({ value: { command: e.name } }))
+  on('ui.render', ($, e) => {
+    const { Text } = $.ui.resolve(e)
+    return Text({ children: 'Engine output' })
+  })
+  on('fs.read', () => ({ value: bankSource }))
+
+  await $.session.start({
+    cwd: '/work/trivia-desktop-pointer',
+    surface: 'desktop',
+    isInteractive: true,
+  })
+  await $.command.run({
+    command: 'trivia',
+    args: 'on',
+    origin: { kind: 'composer' },
+    presentation: { isFullscreen: false, columns: 60 },
+  })
+
+  const ui = await $.ui.mount({
+    plugin: 'trivia',
+    surface: 'desktop',
+    component: 'AbovePrompt',
+    props: {
+      hasSurvey: false,
+      isWorking: false,
+      maxRows: 20,
+      bodyColumns: 60,
+      scroll: { offset: 0, bodyRows: 12 },
+      view: {},
+    },
+  })
+
+  try {
+    await ui.resize({ columns: 50, rows: 12, in: 'stage' })
+    await ui.press({ key: 'start' })
+    await ui.advance(3_000)
+    expect(triviaProps(await ui.find({ key: 'stage' })).game?.phase).toBe('asking')
+
+    await ui.pointer({ type: 'down', x: 25, y: 3, button: 'left', in: 'stage' })
+    const afterGap = triviaProps(await ui.find({ key: 'stage' })).game!
+    expect(afterGap.phase).toBe('asking')
+    expect(afterGap.selectedAnswer).toBeNull()
+
+    const corners = [
+      { choice: 0, x: 0, y: 3 },
+      { choice: 1, x: 49, y: 5 },
+      { choice: 2, x: 0, y: 6 },
+      { choice: 3, x: 49, y: 8 },
+    ] as const
+
+    for (const corner of corners) {
+      await ui.pointer({
+        type: 'down',
+        x: corner.x,
+        y: corner.y,
+        button: 'left',
+        in: 'stage',
+      })
+      let game = triviaProps(await ui.find({ key: 'stage' })).game!
+      expect(game.phase).toBe('locked')
+      expect(game.selectedAnswer).toBe(corner.choice)
+
+      await ui.pointer({
+        type: 'down',
+        x: corner.x === 0 ? 49 : 0,
+        y: corner.choice < 2 ? 8 : 3,
+        button: 'left',
+        in: 'stage',
+      })
+      game = triviaProps(await ui.find({ key: 'stage' })).game!
+      expect(game.phase).toBe('locked')
+      expect(game.selectedAnswer).toBe(corner.choice)
+
+      await ui.advance(26 * 70)
+      game = triviaProps(await ui.find({ key: 'stage' })).game!
+      if (game.phase === 'correct') {
+        await ui.press({ key: 'next' })
+      } else {
+        expect(game.phase === 'wrong' || game.phase === 'cleared').toBe(true)
+        await ui.advance(36 * 70)
+        await ui.press({ key: 'new-game' })
+      }
+      await ui.advance(3_000)
+      expect(triviaProps(await ui.find({ key: 'stage' })).game?.phase).toBe('asking')
+    }
+  } finally {
+    await ui.unmount()
+  }
+})

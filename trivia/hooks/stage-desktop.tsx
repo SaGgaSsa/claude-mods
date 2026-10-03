@@ -16,7 +16,26 @@ const RED = '#a93636'
 const CARD = '#302a20'
 const CARD_HOVER = '#45391f'
 
+const HEADER_ROWS = 1
+const QUESTION_ROWS = 2
+const ANSWER_CARD_ROWS = 3
+const ANSWER_ROW_COUNT = 2
+const ANSWER_GAP = 1
+const ANSWER_CARD_WIDTH = '50%' as const
+
 type Choice = 0 | 1 | 2 | 3
+
+type AnswerGeometry = {
+  headerRows: number
+  questionRows: number
+  answerTop: number
+  answerRows: number
+  cardRows: number
+  cardWidth: typeof ANSWER_CARD_WIDTH
+  gap: number
+  leftEnd: number
+  rightStart: number
+}
 
 type DesktopStageState = {
   tick: number
@@ -54,6 +73,35 @@ const phaseOf = (props: TriviaProps): TriviaPhase => props.game?.phase ?? 'idle'
 const questionKeyOf = (props: TriviaProps): string => props.game?.roundId ?? ''
 const questionLengthOf = (props: TriviaProps): number =>
   Array.from(props.game?.round?.question ?? '').length
+
+const answerGeometryFor = (columns: number): AnswerGeometry => {
+  const leftWidth = Math.ceil((columns - ANSWER_GAP) / 2)
+  return {
+    headerRows: HEADER_ROWS,
+    questionRows: QUESTION_ROWS,
+    answerTop: HEADER_ROWS + QUESTION_ROWS,
+    answerRows: ANSWER_ROW_COUNT,
+    cardRows: ANSWER_CARD_ROWS,
+    cardWidth: ANSWER_CARD_WIDTH,
+    gap: ANSWER_GAP,
+    leftEnd: leftWidth,
+    rightStart: leftWidth + ANSWER_GAP,
+  }
+}
+
+const answerAt = (x: number, y: number, columns: number): Choice | null => {
+  if (x < 0 || x >= columns) return null
+  const geometry = answerGeometryFor(columns)
+  const relativeY = y - geometry.answerTop
+  if (relativeY < 0) return null
+
+  const row = Math.floor(relativeY / geometry.cardRows)
+  if (row >= geometry.answerRows) return null
+
+  if (x < geometry.leftEnd) return (row * 2) as Choice
+  if (x >= geometry.rightStart) return (row * 2 + 1) as Choice
+  return null
+}
 
 const initialState = (props: TriviaProps): DesktopStageState => ({
   tick: 0,
@@ -304,6 +352,7 @@ const answerRows = (
   elements: ClientElements,
   props: TriviaProps,
   state: DesktopStageState,
+  columns: number,
   onPick: (choice: Choice) => void,
 ): RenderElement[] => {
   const game = props.game
@@ -311,6 +360,7 @@ const answerRows = (
   if (!game || !round) return []
 
   const { Box, Button } = elements
+  const geometry = answerGeometryFor(columns)
   const rows: RenderElement[] = []
 
   for (const firstChoice of [0, 2] as const) {
@@ -320,7 +370,11 @@ const answerRows = (
     for (const choiceValue of [firstChoice, firstChoice + 1] as const) {
       if (choiceValue >= 4) continue
       if (choiceValue >= state.answersShown) {
-        cells.push(Box({ width: '50%', minWidth: 0 }))
+        cells.push(Box({
+          width: geometry.cardWidth,
+          height: geometry.cardRows,
+          minWidth: 0,
+        }))
         continue
       }
 
@@ -330,7 +384,8 @@ const answerRows = (
       cells.push(Box({
         key: `answer-card-${choice}`,
         // A fixed half, not flexGrow: the cards would size to their labels.
-        width: '50%',
+        width: geometry.cardWidth,
+        height: geometry.cardRows,
         minWidth: 0,
         paddingX: 1,
         borderStyle: 'round',
@@ -353,7 +408,7 @@ const answerRows = (
     rows.push(Box({
       flexDirection: 'row',
       alignItems: 'stretch',
-      gap: 1,
+      gap: geometry.gap,
       children: cells,
     }))
   }
@@ -367,6 +422,7 @@ const renderStage = (
   elements: ClientElements,
   post: (message: TriviaMessage) => void,
   showOutro: () => void,
+  columns: number,
 ): RenderElement => {
   const { Box, Button, Text } = elements
   const game = props.game
@@ -414,20 +470,33 @@ const renderStage = (
   const heading = round
     ? `${round.category} · ${round.difficulty} · Streak ${game.streak} · ${status}`
     : `Streak ${game.streak} · ${status}`
+  const geometry = answerGeometryFor(columns)
   const children: RenderElement[] = [
-    Text({ color: headerColor, bold: true, wrap: 'truncate', children: heading }),
+    Box({
+      flexDirection: 'column',
+      height: geometry.headerRows,
+      overflow: 'hidden',
+      children: [Text({
+        color: headerColor,
+        bold: true,
+        wrap: 'truncate',
+        children: heading,
+      })],
+    }),
+    Box({
+      flexDirection: 'column',
+      height: geometry.questionRows,
+      overflow: 'hidden',
+      children: visibleQuestion.length > 0 ? [Text({
+        color: SOFT_WHITE,
+        bold: true,
+        wrap: 'wrap',
+        children: visibleQuestion,
+      })] : [],
+    }),
   ]
 
-  if (visibleQuestion.length > 0) {
-    children.push(Text({
-      color: SOFT_WHITE,
-      bold: true,
-      wrap: 'truncate',
-      children: visibleQuestion,
-    }))
-  }
-
-  children.push(...answerRows(elements, props, state, choice => {
+  children.push(...answerRows(elements, props, state, columns, choice => {
     if (state.phaseKey === 'asking' && choice < state.answersShown) {
       post({ type: 'pick', choice })
     }
@@ -516,10 +585,20 @@ const DesktopStage: ClientModule<TriviaProps, DesktopStageState> = (props, surfa
   const post = (message: TriviaMessage) => surface.post(message)
 
   surface.onPointer(event => {
-    if (event.type === 'down') showOutro()
+    if (event.type !== 'down') return
+    showOutro()
+
+    if (event.button !== undefined && event.button !== 'left') return
+    const current = surface.state ?? displayedState
+    if (phaseOf(props) !== 'asking' || current.phaseKey !== 'asking') return
+
+    const choice = answerAt(event.x, event.y, surface.columns)
+    if (choice !== null && choice < current.answersShown) {
+      post({ type: 'pick', choice })
+    }
   })
 
-  return renderStage(props, displayedState, surface.elements, post, showOutro)
+  return renderStage(props, displayedState, surface.elements, post, showOutro, surface.columns)
 }
 
 export default DesktopStage
