@@ -104,7 +104,9 @@ A multiple-choice streak game in the band above the prompt, played only with cli
   powershell -ExecutionPolicy Bypass -File trivia/scripts/fetch-questions.ps1 -Batches 4
   ```
 
-  `-Category <id>` and `-Difficulty easy|medium|hard` filter them. Restart
+  `-Category <id>` and `-Difficulty easy|medium|hard` filter them. The bank is
+  capped at 1000 questions: the script stops there and refuses to run on a
+  full bank. Restart
   Claude Code or run `/reload-plugins` to load the new questions.
 
 ## Adding a mod
