@@ -8,6 +8,8 @@ export type TriviaPhase =
   | 'wrong'
   | 'cleared'
 
+export type TriviaView = 'reveal' | 'outro'
+
 export type TriviaQuestion = {
   difficulty: TriviaDifficulty
   category: string
@@ -65,6 +67,17 @@ export type TriviaLayoutTarget =
   | { type: 'next' }
   | { type: 'new' }
 
+export type TriviaOutroLayout = {
+  titleY: number
+  streakY: number
+  missedY: number
+  newButton: TriviaRect
+  historyY: number
+  barsY: number
+  numbersY: number
+  chart: TriviaRect
+}
+
 export type TriviaLayout = {
   width: number
   height: 12
@@ -83,9 +96,14 @@ export type TriviaLayout = {
   answerBoxes: TriviaRect[]
   startButton: TriviaRect | null
   nextButton: TriviaRect
-  newButton: TriviaRect
+  outro: TriviaOutroLayout
   answerAt: (x: number, y: number) => 0 | 1 | 2 | 3 | null
-  targetAt: (x: number, y: number, phase: TriviaPhase) => TriviaLayoutTarget | null
+  targetAt: (
+    x: number,
+    y: number,
+    phase: TriviaPhase,
+    view: TriviaView,
+  ) => TriviaLayoutTarget | null
 }
 
 declare module 'claude-code' {

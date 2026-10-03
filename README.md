@@ -85,8 +85,10 @@ A multiple-choice streak game in the band above the prompt, played only with cli
 
 - Questions come at random from the whole pool, without repeats, until the first
   wrong answer. Each right answer adds one to the streak.
-- When a game ends the band shows your best streak and the last games. The last
-  10 games and the best streak are kept across sessions.
+- When a game ends, the right answer is revealed, then a final screen shows the
+  streak, the question you missed, a bar chart of the last games and a centered
+  `New game` button. The last 10 games and the best streak are kept across
+  sessions.
 - Click an answer box to lock it in. After a short suspense the right answer
   turns green and a wrong pick red.
 - Clawd hosts: it bounces and waves while the question types itself out, then

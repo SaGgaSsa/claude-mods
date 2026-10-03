@@ -156,7 +156,7 @@ test('keeps the newest ten history entries and treats invalid history as empty',
 test('loads, saves and displays streak history in the mounted band', async ($, on) => {
   const startingHistory: TriviaHistory = {
     best: 0,
-    games: [{ streak: 0, at: 100 }, { streak: 0, at: 90 }],
+    games: Array.from({ length: 10 }, (_, index) => ({ streak: 0, at: 100 - index })),
   }
   mock.store(on, { history: startingHistory })
   mock.clock(on, { now: 5_000 })
@@ -221,13 +221,13 @@ test('loads, saves and displays streak history in the mounted band', async ($, o
   expect(client?.props.height).toBe(12)
   const initialProps = triviaProps(client)
   expect(initialProps.best).toBe(0)
-  expect(initialProps.recent).toEqual([0, 0])
+  expect(initialProps.recent).toEqual(Array.from({ length: 10 }, () => 0))
   expect(initialProps.game?.phase).toBe('idle')
   expect(initialProps.game?.rounds).toHaveLength(bank.length)
 
   const idleGrid = canvasOf(await ui.drawn({ in: 'stage' }))
   expectGridWidth(idleGrid, 60)
-  expect(idleGrid[4]!.join('')).toContain('Best 0 · Last games: 0 · 0')
+  expect(idleGrid[4]!.join('')).toContain('Best 0 · Last games:')
 
   const startButton = geometry.startButton!
   await ui.pointer({
@@ -288,17 +288,42 @@ test('loads, saves and displays streak history in the mounted band', async ($, o
 
   const terminalProps = triviaProps(await ui.find({ key: 'stage' }))
   expect(terminalProps.best).toBe(1)
-  expect(terminalProps.recent).toEqual([1, 0, 0])
+  expect(terminalProps.recent).toEqual([1, ...Array.from({ length: 9 }, () => 0)])
   expect(terminalProps.newBest).toBe(true)
   const wrongGrid = canvasOf(await ui.drawn({ in: 'stage' }))
   expectGridWidth(wrongGrid, 60)
-  expect(wrongGrid[4]!.join('')).toContain('Best 1 · Last games: 1 · 0 · 0')
-  expect(wrongGrid[11]!.join('')).toContain('new best!')
+  const correctAnswer = currentGame.rounds[currentGame.currentIndex]!
+  const answerLabel = String.fromCharCode(65 + correctAnswer.correctIndex)
+  expect(wrongGrid[4]!.join('')).not.toContain('Best')
+  expect(wrongGrid[11]!.join('')).toContain(
+    `Wrong — answer: ${answerLabel}: ${correctAnswer.answers[correctAnswer.correctIndex]}`,
+  )
+  expect(wrongGrid[11]!.join('')).not.toContain('New game')
 
+  await ui.advance(3_000)
+  const outroGrid = canvasOf(await ui.drawn({ in: 'stage' }))
+  expectGridWidth(outroGrid, 60)
+  expect(outroGrid[1]!.join('')).toContain('GAME OVER')
+  expect(outroGrid[2]!.join('')).toContain('Final streak 1')
+  expect(outroGrid[2]!.join('')).toContain('new best!')
+  expect(outroGrid[3]!.join('')).toContain('Missed:')
+  expect(outroGrid[3]!.join('')).toContain('→')
+  expect(outroGrid[5]!.join('')).toContain('╭')
+  expect(outroGrid[6]!.join('')).toContain('New game')
+  expect(outroGrid[7]!.join('')).toContain('╰')
+  const chart = layout(60).outro.chart
+  const plotX = chart.x + Math.floor((chart.width - 29) / 2)
+  expect(outroGrid[9]!.join('').match(/[▁▂▃▄▅▆▇█]/g)).toHaveLength(20)
+  const chartNumbers = Array.from({ length: 10 }, (_, index) =>
+    outroGrid[10]![plotX + index * 3],
+  )
+  expect(chartNumbers).toEqual([...Array.from({ length: 9 }, () => '0'), '1'])
+
+  const newButton = layout(60).outro.newButton
   await ui.pointer({
     type: 'down',
-    x: geometry.newButton.x + 1,
-    y: geometry.newButton.y,
+    x: newButton.x + Math.floor(newButton.width / 2),
+    y: newButton.y + 1,
     button: 'left',
     in: 'stage',
   })
@@ -319,13 +344,143 @@ test('loads, saves and displays streak history in the mounted band', async ($, o
   ui = await mount()
   const reloaded = triviaProps(await ui.find({ key: 'stage' }))
   expect(reloaded.best).toBe(1)
-  expect(reloaded.recent).toEqual([1, 0, 0])
+  expect(reloaded.recent).toEqual([1, ...Array.from({ length: 9 }, () => 0)])
+
+  await ui.advance(1_600)
+  const retryGame = triviaProps(await ui.find({ key: 'stage' })).game!
+  const retryRound = retryGame.rounds[0]!
+  const retryWrong = retryRound.correctIndex === 0 ? 1 : 0
+  const retryBox = layout(60).answerBoxes[retryWrong]!
+  await ui.pointer({
+    type: 'down',
+    x: retryBox.x + 2,
+    y: retryBox.y + 1,
+    button: 'left',
+    in: 'stage',
+  })
+  await ui.advance(2_000)
+  expect(triviaProps(await ui.find({ key: 'stage' })).game?.phase).toBe('wrong')
+  await ui.pointer({ type: 'down', x: 0, y: 0, button: 'left', in: 'stage' })
+  expect(canvasOf(await ui.drawn({ in: 'stage' }))[1]!.join('')).toContain('GAME OVER')
+  expect(triviaProps(await ui.find({ key: 'stage' })).game?.phase).toBe('wrong')
+  const retryButton = layout(60).outro.newButton
+  await ui.pointer({
+    type: 'down',
+    x: retryButton.x + Math.floor(retryButton.width / 2),
+    y: retryButton.y + 1,
+    button: 'left',
+    in: 'stage',
+  })
+  expect(triviaProps(await ui.find({ key: 'stage' })).game?.phase).toBe('asking')
   await ui.unmount()
 
   ui = await mount(59)
   const narrowGrid = canvasOf(await ui.drawn({ in: 'stage' }))
   expectGridWidth(narrowGrid, 59)
   expect(blockPixel.test(narrowGrid.flat().join(''))).toBe(false)
+  await ui.unmount()
+})
+
+test('shows the cleared outro in a 45-column band and starts a fresh game', async ($, on) => {
+  mock.store(on, { history: emptyHistory() })
+  mock.clock(on, { now: 8_000 })
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('command.register', (_, e) => ({ value: { command: e.name } }))
+  on('ui.render', ($, e) => {
+    const { Text } = $.ui.resolve(e)
+    return Text({ children: 'Engine output' })
+  })
+
+  const bank = sampleBank(1)
+  const bankSource = JSON.stringify({
+    response_code: 0,
+    results: bank.map(question => ({
+      type: 'multiple',
+      difficulty: question.difficulty,
+      category: question.category,
+      question: question.question,
+      correct_answer: question.correctAnswer,
+      incorrect_answers: question.incorrectAnswers,
+    })),
+  })
+  on('fs.read', () => ({ value: bankSource }))
+  await $.session.start({ cwd: '/work/trivia-clear', surface: 'terminal', isInteractive: true })
+  await $.command.run({
+    command: 'trivia',
+    args: 'on',
+    origin: { kind: 'composer' },
+    presentation: { isFullscreen: false, columns: 45 },
+  })
+
+  const bandProps = {
+    hasSurvey: false,
+    isWorking: false,
+    maxRows: 20,
+    bodyColumns: 45,
+    scroll: { offset: 0, bodyRows: 12 },
+    view: {},
+  } as const
+  const ui = await $.ui.mount({
+    plugin: 'trivia',
+    surface: 'terminal',
+    component: 'AbovePrompt',
+    props: bandProps,
+  })
+  const geometry = layout(45)
+  const startButton = geometry.startButton!
+  await ui.pointer({
+    type: 'down',
+    x: startButton.x + Math.floor(startButton.width / 2),
+    y: startButton.y,
+    button: 'left',
+    in: 'stage',
+  })
+  await ui.advance(1_600)
+
+  const game = triviaProps(await ui.find({ key: 'stage' })).game!
+  const correctBox = geometry.answerBoxes[game.rounds[0]!.correctIndex]!
+  await ui.pointer({
+    type: 'down',
+    x: correctBox.x + 2,
+    y: correctBox.y + 1,
+    button: 'left',
+    in: 'stage',
+  })
+  await ui.advance(2_000)
+  expect(triviaProps(await ui.find({ key: 'stage' })).game?.phase).toBe('cleared')
+
+  const revealGrid = canvasOf(await ui.drawn({ in: 'stage' }))
+  expectGridWidth(revealGrid, 45)
+  expect(revealGrid[11]!.join('')).toContain('You answered all 1 questions!')
+  expect(revealGrid[11]!.join('')).not.toContain('New game')
+  expect(revealGrid[1]!.join('')).not.toContain('ALL CLEARED!')
+
+  await ui.pointer({ type: 'down', x: 0, y: 0, button: 'left', in: 'stage' })
+  const outroGrid = canvasOf(await ui.drawn({ in: 'stage' }))
+  expectGridWidth(outroGrid, 45)
+  expect(outroGrid[1]!.join('')).toContain('ALL CLEARED!')
+  expect(outroGrid[2]!.join('')).toContain('Final streak 1')
+  expect(outroGrid[8]!.join('')).toContain('Best 1')
+  expect(outroGrid[8]!.join('')).toContain('Last games')
+  expect(outroGrid[9]!.join('').match(/[▁▂▃▄▅▆▇█]/g)).toHaveLength(2)
+  expect(outroGrid[10]!.join('')).toContain('1')
+  const leftSpriteArea = outroGrid
+    .slice(1, 5)
+    .map(row => row.slice(0, 16).join(''))
+    .join('')
+  expect(/[▀▄█]/.test(leftSpriteArea)).toBe(false)
+
+  const newButton = geometry.outro.newButton
+  await ui.pointer({
+    type: 'down',
+    x: newButton.x + Math.floor(newButton.width / 2),
+    y: newButton.y + 1,
+    button: 'left',
+    in: 'stage',
+  })
+  const restarted = triviaProps(await ui.find({ key: 'stage' })).game
+  expect(restarted?.phase).toBe('asking')
+  expect(restarted?.streak).toBe(0)
   await ui.unmount()
 })
 

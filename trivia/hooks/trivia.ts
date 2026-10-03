@@ -13,7 +13,8 @@ import type {
 
 const START_LABEL = '[ Start ]'
 const NEXT_LABEL = '[ Next question ]'
-const NEW_LABEL = '[ New game ]'
+const OUTRO_BUTTON_WIDTH = 20
+const CHART_WIDTH = 29
 
 const NAMED_ENTITIES: Record<string, string> = {
   quot: '"',
@@ -311,27 +312,49 @@ export const layout = (requestedWidth: number): TriviaLayout => {
     statusY,
     Math.min(width, NEXT_LABEL.length),
   )
-  const newButton = makeRect(
-    Math.max(0, width - NEW_LABEL.length),
-    statusY,
-    Math.min(width, NEW_LABEL.length),
-  )
+  const newButtonWidth = Math.min(width, OUTRO_BUTTON_WIDTH)
+  const outro = {
+    titleY: 1,
+    streakY: 2,
+    missedY: 3,
+    newButton: makeRect(
+      Math.floor((width - newButtonWidth) / 2),
+      5,
+      newButtonWidth,
+      3,
+    ),
+    historyY: 8,
+    barsY: 9,
+    numbersY: 10,
+    chart: makeRect(
+      Math.floor((width - Math.min(width, CHART_WIDTH)) / 2),
+      8,
+      Math.min(width, CHART_WIDTH),
+      3,
+    ),
+  }
 
   const answerAt = (x: number, y: number): 0 | 1 | 2 | 3 | null => {
     const index = answerBoxes.findIndex(box => contains(box, x, y))
     return index >= 0 ? index as 0 | 1 | 2 | 3 : null
   }
 
-  const targetAt = (x: number, y: number, phase: TriviaPhase): TriviaLayoutTarget | null => {
+  const targetAt = (
+    x: number,
+    y: number,
+    phase: TriviaPhase,
+    view: 'reveal' | 'outro',
+  ): TriviaLayoutTarget | null => {
+    if (phase === 'wrong' || phase === 'cleared') {
+      return view === 'outro' && contains(outro.newButton, x, y) ? { type: 'new' } : null
+    }
+
     const answer = answerAt(x, y)
     if (answer !== null) return { type: 'answer', choice: answer }
     if (phase === 'idle' && startButton && contains(startButton, x, y)) {
       return { type: 'start' }
     }
     if (phase === 'correct' && contains(nextButton, x, y)) return { type: 'next' }
-    if ((phase === 'wrong' || phase === 'cleared') && contains(newButton, x, y)) {
-      return { type: 'new' }
-    }
     return null
   }
 
@@ -353,7 +376,7 @@ export const layout = (requestedWidth: number): TriviaLayout => {
     answerBoxes,
     startButton,
     nextButton,
-    newButton,
+    outro,
     answerAt,
     targetAt,
   }

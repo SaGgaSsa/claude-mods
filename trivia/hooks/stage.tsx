@@ -1,6 +1,6 @@
 import type { ClientModule } from 'claude-code'
 
-import type { TriviaLayout, TriviaPhase, TriviaProps, TriviaRect } from '../types'
+import type { TriviaLayout, TriviaPhase, TriviaProps, TriviaRect, TriviaView } from '../types'
 import type { ClawdLook } from './clawd'
 import { drawClawd } from './clawd'
 import {
@@ -14,6 +14,7 @@ const TICK_MS = 70
 const LOCK_TICKS = 26
 const CORRECT_FLASH_TICKS = 12
 const QUIET_BLINK_TICKS = 43
+const OUTRO_DELAY_TICKS = 36
 
 const AMBER = '#d6ad55'
 const BRIGHT_AMBER = '#ffe08a'
@@ -28,14 +29,17 @@ type StageState = {
   tick: number
   questionKey: number
   phaseKey: TriviaPhase
+  view: TriviaView
   phaseStartedAt: number
   questionCharacters: number
   questionLength: number
   answersShown: number
   answerDelayTicks: number
   hoverChoice: number | null
+  hoverNewButton: boolean
   revealSent: boolean
   blinkActive: boolean
+  celebrate: boolean
 }
 
 type AnimationStep = {
@@ -54,14 +58,17 @@ const initialState = (props: TriviaProps): StageState => ({
   tick: 0,
   questionKey: questionIndexOf(props),
   phaseKey: phaseOf(props),
+  view: 'reveal',
   phaseStartedAt: 0,
   questionCharacters: 0,
   questionLength: questionLengthOf(props),
   answersShown: 0,
   answerDelayTicks: 0,
   hoverChoice: null,
+  hoverNewButton: false,
   revealSent: false,
   blinkActive: false,
+  celebrate: props.newBest || phaseOf(props) === 'cleared',
 })
 
 const syncState = (state: StageState, props: TriviaProps): StageState => {
@@ -75,14 +82,17 @@ const syncState = (state: StageState, props: TriviaProps): StageState => {
     ...state,
     questionKey,
     phaseKey,
+    view: 'reveal',
     phaseStartedAt: state.tick,
     questionCharacters: questionChanged || startedAsking ? 0 : state.questionCharacters,
     questionLength: questionLengthOf(props),
     answersShown: questionChanged || startedAsking ? 0 : state.answersShown,
     answerDelayTicks: questionChanged || startedAsking ? 0 : state.answerDelayTicks,
     hoverChoice: null,
+    hoverNewButton: false,
     revealSent: false,
     blinkActive: false,
+    celebrate: props.newBest || phaseKey === 'cleared',
   }
 }
 
@@ -130,7 +140,23 @@ const advanceAnimation = (state: StageState): AnimationStep | null => {
     return { state: { ...state, tick }, reveal: false }
   }
 
-  if (state.phaseKey === 'cleared') return { state: { ...state, tick }, reveal: false }
+  if (state.phaseKey === 'wrong' || state.phaseKey === 'cleared') {
+    if (state.view === 'reveal') {
+      const openOutro = tick - state.phaseStartedAt >= OUTRO_DELAY_TICKS
+      return {
+        state: {
+          ...state,
+          tick,
+          view: openOutro ? 'outro' : 'reveal',
+          hoverNewButton: false,
+        },
+        reveal: false,
+      }
+    }
+    if (state.phaseKey === 'cleared' || state.celebrate) {
+      return { state: { ...state, tick }, reveal: false }
+    }
+  }
   return null
 }
 
@@ -179,7 +205,15 @@ const clawdLookFor = (props: TriviaProps, state: StageState): ClawdLook => {
     }
   }
   if (phase === 'wrong') {
-    return { arms: 'down', eyes: 'closed', jump: false, offset: 0, step: false }
+    const celebrating = state.view === 'outro' && state.celebrate
+    const beat = Math.floor((state.tick - state.phaseStartedAt) / 3)
+    return {
+      arms: celebrating ? 'up' : 'down',
+      eyes: 'closed',
+      jump: celebrating && beat % 2 === 0,
+      offset: 0,
+      step: false,
+    }
   }
 
   return {
@@ -357,22 +391,11 @@ const drawStatus = (
 
   const status = phase === 'wrong' && round
     ? `Wrong — answer: ${String.fromCharCode(65 + round.correctIndex)}: ` +
-      `${round.answers[round.correctIndex]} · final streak ${game.streak}`
+      `${round.answers[round.correctIndex]}`
     : `You answered all ${game.rounds.length} questions!`
-  const marker = props.newBest ? ' · new best!' : ''
-  const available = Math.max(0, geometry.newButton.x - 1)
-  const statusWidth = Math.max(0, available - Array.from(marker).length)
-  const visibleStatus = truncate(status, statusWidth)
-  writeText(canvas, visibleStatus, 0, geometry.statusY, {
+  writeText(canvas, truncate(status, geometry.width), 0, geometry.statusY, {
     color: phase === 'wrong' ? '#efa19a' : SOFT_WHITE,
   })
-  if (marker) {
-    writeText(canvas, marker, Array.from(visibleStatus).length, geometry.statusY, {
-      color: BRIGHT_AMBER,
-      bold: true,
-    })
-  }
-  placeButton(canvas, geometry.newButton, '[ New game ]')
 }
 
 const drawSparks = (
@@ -394,6 +417,110 @@ const drawSparks = (
       }
     }
   }
+}
+
+const drawOutroButton = (
+  canvas: ReturnType<typeof createCanvas>,
+  rect: TriviaRect,
+  hovered: boolean,
+) => {
+  const color = hovered ? BRIGHT_AMBER : AMBER
+  const style = { color, bold: true }
+  const top = `\u256d${'\u2500'.repeat(Math.max(0, rect.width - 2))}\u256e`
+  const bottom = `\u2570${'\u2500'.repeat(Math.max(0, rect.width - 2))}\u256f`
+  writeText(canvas, top, rect.x, rect.y, style)
+  writeText(canvas, '\u2502', rect.x, rect.y + 1, style)
+  writeText(canvas, '\u2502', rect.x + rect.width - 1, rect.y + 1, style)
+  writeText(canvas, bottom, rect.x, rect.y + rect.height - 1, style)
+  writeCentered(canvas, 'New game', rect.x + 1, rect.y + 1, rect.width - 2, style)
+}
+
+const drawOutroHistory = (
+  canvas: ReturnType<typeof createCanvas>,
+  props: TriviaProps,
+  game: NonNullable<TriviaProps['game']>,
+  geometry: TriviaLayout,
+) => {
+  const chart = geometry.outro.chart
+  const recent = (props.recent.length > 0 ? props.recent.slice(0, 10) : [game.streak]).reverse()
+  const plotWidth = Math.max(0, recent.length * 3 - 1)
+  const plotX = chart.x + Math.floor((chart.width - plotWidth) / 2)
+  const bestLabel = `Best ${props.best}`
+  const legendX = chart.x + Array.from(bestLabel).length + 2
+  const legendWidth = Math.max(0, chart.x + chart.width - legendX)
+
+  writeText(canvas, bestLabel, chart.x, geometry.outro.historyY, { color: AMBER, bold: true })
+  writeCentered(canvas, 'Last games', legendX, geometry.outro.historyY, legendWidth, {
+    color: SOFT_WHITE,
+  })
+
+  const maxStreak = Math.max(0, ...recent)
+  const bars = '\u2581\u2582\u2583\u2584\u2585\u2586\u2587\u2588'
+  for (let index = 0; index < recent.length; index++) {
+    const streak = recent[index] ?? 0
+    const barLevel = maxStreak === 0 ? 0 : Math.round((streak / maxStreak) * 7)
+    const bar = Array.from(bars)[barLevel] ?? '\u2581'
+    const x = plotX + index * 3
+    const isLatest = index === recent.length - 1
+    const color = streak === 0 && !isLatest ? '#77736a' : isLatest ? BRIGHT_AMBER : AMBER
+    writeText(canvas, bar.repeat(2), x, geometry.outro.barsY, { color, bold: true })
+    writeCentered(canvas, String(streak), x, geometry.outro.numbersY, 2, {
+      color: isLatest ? BRIGHT_AMBER : SOFT_WHITE,
+    })
+  }
+}
+
+const drawOutro = (
+  canvas: ReturnType<typeof createCanvas>,
+  props: TriviaProps,
+  geometry: TriviaLayout,
+  hoverNewButton: boolean,
+) => {
+  const game = props.game
+  if (!game) return
+  const phase = game.phase
+  const round = currentRound(game)
+  const contentX = geometry.questionX
+  const contentWidth = geometry.questionCenterWidth
+  const title = phase === 'cleared' ? 'ALL CLEARED!' : 'GAME OVER'
+  writeCentered(canvas, title, contentX, geometry.outro.titleY, contentWidth, {
+    color: AMBER,
+    bold: true,
+  })
+
+  const streakText = `Final streak ${game.streak}`
+  const marker = props.newBest ? ' \u00b7 new best!' : ''
+  const totalWidth = Array.from(streakText + marker).length
+  const streakX = contentX + Math.floor((contentWidth - totalWidth) / 2)
+  writeText(canvas, streakText, streakX, geometry.outro.streakY, {
+    color: SOFT_WHITE,
+    bold: true,
+  })
+  if (marker) {
+    writeText(canvas, marker, streakX + Array.from(streakText).length, geometry.outro.streakY, {
+      color: BRIGHT_AMBER,
+      bold: true,
+    })
+  }
+
+  if (phase === 'wrong' && round) {
+    const answer = round.answers[round.correctIndex]
+    const missed = `Missed: ${round.question} \u2192 ${answer}`
+    writeCentered(
+      canvas,
+      truncate(missed, contentWidth),
+      contentX,
+      geometry.outro.missedY,
+      contentWidth,
+      { color: '#b9b2a2' },
+    )
+  }
+
+  drawOutroButton(canvas, geometry.outro.newButton, hoverNewButton)
+  drawOutroHistory(canvas, props, game, geometry)
+  writeCentered(canvas, 'Click New game to play again', 0, geometry.statusY, geometry.width, {
+    color: '#8f8a80',
+  })
 }
 
 const drawStage = (props: TriviaProps, state: StageState) => {
@@ -428,6 +555,11 @@ const drawStage = (props: TriviaProps, state: StageState) => {
     })
     drawHistory(canvas, props, geometry)
     drawStatus(canvas, props, geometry)
+    return canvas
+  }
+
+  if ((phase === 'wrong' || phase === 'cleared') && state.view === 'outro') {
+    drawOutro(canvas, props, geometry, state.hoverNewButton)
     return canvas
   }
 
@@ -467,9 +599,8 @@ const drawStage = (props: TriviaProps, state: StageState) => {
     }
   }
 
-  if (phase === 'wrong' || phase === 'cleared') drawHistory(canvas, props, geometry)
   drawStatus(canvas, props, geometry)
-  if (phase === 'cleared') drawSparks(canvas, state.tick, geometry)
+  if (phase === 'cleared' && state.view === 'reveal') drawSparks(canvas, state.tick, geometry)
   return canvas
 }
 
@@ -521,14 +652,29 @@ const Stage: ClientModule<TriviaProps, StageState> = (props, surface) => {
   const displayedState = state ?? initialState(props)
   surface.onPointer(event => {
     const current = surface.state ?? displayedState
-    const target = geometry.targetAt(event.x, event.y, current.phaseKey)
+    const target = geometry.targetAt(event.x, event.y, current.phaseKey, current.view)
 
     if (event.type !== 'down') {
       const hovered = event.type === 'leave' || current.phaseKey !== 'asking'
         ? null
         : geometry.answerAt(event.x, event.y)
       const visibleHover = hovered !== null && hovered < current.answersShown ? hovered : null
-      if (visibleHover !== current.hoverChoice) surface.setState({ ...current, hoverChoice: visibleHover })
+      const hoverNewButton = event.type !== 'leave' && target?.type === 'new'
+      if (
+        visibleHover !== current.hoverChoice ||
+        hoverNewButton !== current.hoverNewButton
+      ) {
+        surface.setState({ ...current, hoverChoice: visibleHover, hoverNewButton })
+      }
+      return
+    }
+
+    if (current.phaseKey === 'wrong' || current.phaseKey === 'cleared') {
+      if (current.view === 'reveal') {
+        surface.setState({ ...current, view: 'outro', hoverNewButton: false })
+      } else if (target?.type === 'new') {
+        surface.post({ type: 'new' })
+      }
       return
     }
 
@@ -545,13 +691,6 @@ const Stage: ClientModule<TriviaProps, StageState> = (props, surface) => {
       return
     }
     if (current.phaseKey === 'idle' && target?.type === 'start') {
-      surface.post({ type: 'new' })
-      return
-    }
-    if (
-      (current.phaseKey === 'wrong' || current.phaseKey === 'cleared') &&
-      target?.type === 'new'
-    ) {
       surface.post({ type: 'new' })
     }
   })
