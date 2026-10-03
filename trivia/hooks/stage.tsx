@@ -5,9 +5,7 @@ import type { ClawdLook } from './clawd'
 import { drawClawd } from './clawd'
 import {
   currentRound,
-  formatMoney,
   layout,
-  safeWinnings,
   wrapText,
 } from './trivia'
 import { createCanvas, fillRect, toElement, writeCentered, writeText } from './canvas'
@@ -132,7 +130,7 @@ const advanceAnimation = (state: StageState): AnimationStep | null => {
     return { state: { ...state, tick }, reveal: false }
   }
 
-  if (state.phaseKey === 'won') return { state: { ...state, tick }, reveal: false }
+  if (state.phaseKey === 'cleared') return { state: { ...state, tick }, reveal: false }
   return null
 }
 
@@ -169,12 +167,12 @@ const clawdLookFor = (props: TriviaProps, state: StageState): ClawdLook => {
       step: false,
     }
   }
-  if (phase === 'correct' || phase === 'won') {
+  if (phase === 'correct' || phase === 'cleared') {
     const beat = Math.floor((state.tick - state.phaseStartedAt) / 3)
     return {
       arms: 'up',
       eyes: 'open',
-      jump: (phase === 'won' || state.tick - state.phaseStartedAt < CORRECT_FLASH_TICKS) &&
+      jump: (phase === 'cleared' || state.tick - state.phaseStartedAt < CORRECT_FLASH_TICKS) &&
         beat % 2 === 0,
       offset: 0,
       step: false,
@@ -195,7 +193,6 @@ const clawdLookFor = (props: TriviaProps, state: StageState): ClawdLook => {
 
 const isQuietBlinkPhase = (state: StageState): boolean =>
   state.phaseKey === 'idle' ||
-  state.phaseKey === 'walked' ||
   (state.phaseKey === 'asking' &&
     state.questionCharacters >= state.questionLength &&
     state.answersShown >= 4)
@@ -216,21 +213,15 @@ const drawHeader = (
   canvas: ReturnType<typeof createCanvas>,
   props: TriviaProps,
   gamePhase: TriviaPhase,
-  gameRoundCount: number,
-  currentNumber: number,
-  dueAmount: number,
-  safeAmount: number,
   geometry: TriviaLayout,
 ) => {
   const text = props.game && gamePhase !== 'idle'
-    ? `TRIVIA  Q ${currentNumber}/${gameRoundCount} · for ${formatMoney(dueAmount)} · safe ${formatMoney(safeAmount)}`
-    : 'TRIVIA LADDER'
-  const available = geometry.walkButton ? Math.max(0, geometry.walkButton.x - 1) : geometry.width
-  writeText(canvas, truncate(text, available), 0, geometry.headerY, {
+    ? `TRIVIA  Streak ${props.game.streak} · Best ${props.best}`
+    : 'TRIVIA'
+  writeText(canvas, truncate(text, geometry.width), 0, geometry.headerY, {
     color: SOFT_WHITE,
     bold: true,
   })
-  if (gamePhase === 'asking') placeButton(canvas, geometry.walkButton, '[ Walk away ]')
 }
 
 const answerAppearance = (
@@ -260,7 +251,7 @@ const answerAppearance = (
       backgroundColor = RED
       color = '#ffffff'
     }
-  } else if (phase === 'won' && choice === correctIndex) {
+  } else if (phase === 'cleared' && choice === correctIndex) {
     backgroundColor = GREEN
     color = '#ffffff'
   }
@@ -307,10 +298,27 @@ const drawAnswer = (
   writeText(canvas, truncate(answer, answerWidth), rect.x + 4, rect.y + 1, answerStyle)
 }
 
+const drawHistory = (
+  canvas: ReturnType<typeof createCanvas>,
+  props: TriviaProps,
+  geometry: TriviaLayout,
+) => {
+  if (props.best === 0 && props.recent.length === 0) return
+  const history = `Best ${props.best} · Last games: ${props.recent.join(' · ')}`
+  writeCentered(
+    canvas,
+    truncate(history, geometry.questionWidth),
+    geometry.questionX,
+    geometry.historyY,
+    geometry.questionCenterWidth,
+    { color: SOFT_WHITE },
+  )
+}
+
 const drawStatus = (
   canvas: ReturnType<typeof createCanvas>,
   props: TriviaProps,
-  geometry: ReturnType<typeof layout>,
+  geometry: TriviaLayout,
 ) => {
   const game = props.game
   const round = game ? currentRound(game) : null
@@ -339,29 +347,32 @@ const drawStatus = (
     return
   }
   if (phase === 'correct') {
-    writeText(canvas, 'Correct!', 0, geometry.statusY, { color: '#75d18a', bold: true })
+    writeText(canvas, `Correct! Streak ${game.streak}`, 0, geometry.statusY, {
+      color: '#75d18a',
+      bold: true,
+    })
     placeButton(canvas, geometry.nextButton, '[ Next question ]')
     return
   }
 
-  const button = phase === 'wrong' || phase === 'won' || phase === 'walked'
-    ? geometry.newButton
-    : null
-  const available = button ? Math.max(0, button.x - 1) : geometry.width
-  let status = ''
-  if (phase === 'wrong' && round) {
-    const letter = String.fromCharCode(65 + round.correctIndex)
-    status = `Wrong — answer: ${letter}: ${round.answers[round.correctIndex]} · ` +
-      `take home ${formatMoney(game.takeHome)}`
-  } else if (phase === 'won') {
-    status = `You won ${formatMoney(game.takeHome)}!`
-  } else if (phase === 'walked') {
-    status = `You walked away with ${formatMoney(game.takeHome)}`
-  }
-  writeText(canvas, truncate(status, available), 0, geometry.statusY, {
+  const status = phase === 'wrong' && round
+    ? `Wrong — answer: ${String.fromCharCode(65 + round.correctIndex)}: ` +
+      `${round.answers[round.correctIndex]} · final streak ${game.streak}`
+    : `You answered all ${game.rounds.length} questions!`
+  const marker = props.newBest ? ' · new best!' : ''
+  const available = Math.max(0, geometry.newButton.x - 1)
+  const statusWidth = Math.max(0, available - Array.from(marker).length)
+  const visibleStatus = truncate(status, statusWidth)
+  writeText(canvas, visibleStatus, 0, geometry.statusY, {
     color: phase === 'wrong' ? '#efa19a' : SOFT_WHITE,
   })
-  placeButton(canvas, button, '[ New game ]')
+  if (marker) {
+    writeText(canvas, marker, Array.from(visibleStatus).length, geometry.statusY, {
+      color: BRIGHT_AMBER,
+      bold: true,
+    })
+  }
+  placeButton(canvas, geometry.newButton, '[ New game ]')
 }
 
 const drawSparks = (
@@ -391,20 +402,7 @@ const drawStage = (props: TriviaProps, state: StageState) => {
   const game = props.game
   const phase = phaseOf(props)
   const round = game ? currentRound(game) : null
-  const currentNumber = game ? game.currentIndex + 1 : 1
-  const dueAmount = game?.prizes[game.currentIndex] ?? 0
-  const safeAmount = game ? safeWinnings(game) : 0
-
-  drawHeader(
-    canvas,
-    props,
-    phase,
-    game?.rounds.length ?? 0,
-    currentNumber,
-    dueAmount,
-    safeAmount,
-    geometry,
-  )
+  drawHeader(canvas, props, phase, geometry)
 
   if (geometry.clawd) drawClawd(canvas, geometry.clawd, clawdLookFor(props, state))
 
@@ -424,10 +422,11 @@ const drawStage = (props: TriviaProps, state: StageState) => {
   if (!game || phase === 'idle') {
     const titleX = geometry.clawd ? geometry.questionX : 0
     const titleWidth = geometry.clawd ? geometry.questionCenterWidth : geometry.width
-    writeCentered(canvas, '✦ TRIVIA LADDER ✦', titleX, geometry.titleY, titleWidth, {
+    writeCentered(canvas, '✦ TRIVIA ✦', titleX, geometry.titleY, titleWidth, {
       color: AMBER,
       bold: true,
     })
+    drawHistory(canvas, props, geometry)
     drawStatus(canvas, props, geometry)
     return canvas
   }
@@ -468,8 +467,9 @@ const drawStage = (props: TriviaProps, state: StageState) => {
     }
   }
 
+  if (phase === 'wrong' || phase === 'cleared') drawHistory(canvas, props, geometry)
   drawStatus(canvas, props, geometry)
-  if (phase === 'won') drawSparks(canvas, state.tick, geometry)
+  if (phase === 'cleared') drawSparks(canvas, state.tick, geometry)
   return canvas
 }
 
@@ -536,10 +536,6 @@ const Stage: ClientModule<TriviaProps, StageState> = (props, surface) => {
       surface.post({ type: 'next' })
       return
     }
-    if (current.phaseKey === 'asking' && target?.type === 'walk') {
-      surface.post({ type: 'walk' })
-      return
-    }
     if (
       current.phaseKey === 'asking' &&
       target?.type === 'answer' &&
@@ -553,7 +549,7 @@ const Stage: ClientModule<TriviaProps, StageState> = (props, surface) => {
       return
     }
     if (
-      (current.phaseKey === 'wrong' || current.phaseKey === 'won' || current.phaseKey === 'walked') &&
+      (current.phaseKey === 'wrong' || current.phaseKey === 'cleared') &&
       target?.type === 'new'
     ) {
       surface.post({ type: 'new' })

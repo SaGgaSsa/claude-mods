@@ -1,6 +1,7 @@
 import type {
   TriviaDifficulty,
   TriviaGame,
+  TriviaHistory,
   TriviaLayout,
   TriviaLayoutTarget,
   TriviaMessage,
@@ -10,26 +11,6 @@ import type {
   TriviaRound,
 } from '../types'
 
-export const PRIZE_LADDER = [
-  100,
-  200,
-  300,
-  500,
-  1_000,
-  2_000,
-  4_000,
-  8_000,
-  16_000,
-  32_000,
-  64_000,
-  125_000,
-  250_000,
-  500_000,
-  1_000_000,
-] as const
-
-const DIFFICULTIES: TriviaDifficulty[] = ['easy', 'medium', 'hard']
-const WALK_LABEL = '[ Walk away ]'
 const START_LABEL = '[ Start ]'
 const NEXT_LABEL = '[ Next question ]'
 const NEW_LABEL = '[ New game ]'
@@ -142,41 +123,6 @@ export const shuffle = <T>(items: readonly T[], random: () => number): T[] => {
   return shuffled
 }
 
-const uniqueQuestions = (bank: readonly TriviaQuestion[]): TriviaQuestion[] => {
-  const seen = new Set<string>()
-  return bank.filter(question => {
-    const key = `${question.question.toLowerCase()}\u0000${question.correctAnswer.toLowerCase()}`
-    if (seen.has(key)) return false
-    seen.add(key)
-    return true
-  })
-}
-
-const selectQuestions = (
-  bank: readonly TriviaQuestion[],
-  random: () => number,
-): TriviaQuestion[] => {
-  let remaining = shuffle(uniqueQuestions(bank), random)
-  const selected: TriviaQuestion[] = []
-
-  for (const difficulty of DIFFICULTIES) {
-    const preferred = shuffle(
-      remaining.filter(question => question.difficulty === difficulty),
-      random,
-    ).slice(0, 5)
-    const used = new Set(preferred)
-    remaining = remaining.filter(question => !used.has(question))
-
-    const group = [...preferred]
-    while (group.length < 5 && remaining.length > 0) {
-      group.push(remaining.shift()!)
-    }
-    selected.push(...group)
-  }
-
-  return selected
-}
-
 const makeRound = (question: TriviaQuestion, random: () => number): TriviaRound => {
   const choices = shuffle([
     { answer: question.correctAnswer, correct: true },
@@ -198,31 +144,20 @@ export const newGame = (
   bank: readonly TriviaQuestion[],
   random: () => number = Math.random,
 ): TriviaGame => {
-  const questions = selectQuestions(bank, random)
+  const questions = shuffle(bank, random)
   const rounds = questions.map(question => makeRound(question, random))
 
   return {
     rounds,
-    prizes: PRIZE_LADDER.slice(PRIZE_LADDER.length - rounds.length),
     currentIndex: 0,
-    correctCount: 0,
+    streak: 0,
     phase: 'idle',
     selectedAnswer: null,
-    takeHome: 0,
   }
 }
 
 export const currentRound = (game: TriviaGame): TriviaRound | null =>
   game.rounds[game.currentIndex] ?? null
-
-export const formatMoney = (amount: number): string =>
-  `$${Math.max(0, Math.floor(amount)).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`
-
-export const safeWinnings = (game: TriviaGame): number => {
-  if (game.correctCount >= 10) return 32_000
-  if (game.correctCount >= 5) return 1_000
-  return 0
-}
 
 export const pick = (game: TriviaGame, choice: number): TriviaGame => {
   if (game.phase !== 'asking' || !Number.isInteger(choice) || choice < 0 || choice > 3) {
@@ -238,17 +173,14 @@ export const reveal = (game: TriviaGame): TriviaGame => {
   if (!round) return game
 
   const isCorrect = game.selectedAnswer === round.correctIndex
-  if (!isCorrect) {
-    return { ...game, phase: 'wrong', takeHome: safeWinnings(game) }
-  }
+  if (!isCorrect) return { ...game, phase: 'wrong' }
 
-  const correctCount = game.correctCount + 1
+  const streak = game.streak + 1
   const isLast = game.currentIndex === game.rounds.length - 1
   return {
     ...game,
-    correctCount,
-    phase: isLast ? 'won' : 'correct',
-    takeHome: isLast ? game.prizes[game.currentIndex] ?? 0 : game.takeHome,
+    streak,
+    phase: isLast ? 'cleared' : 'correct',
   }
 }
 
@@ -260,12 +192,6 @@ export const next = (game: TriviaGame): TriviaGame => {
     phase: 'asking',
     selectedAnswer: null,
   }
-}
-
-export const walkAway = (game: TriviaGame): TriviaGame => {
-  if (game.phase !== 'asking') return game
-  const takeHome = game.correctCount > 0 ? game.prizes[game.correctCount - 1] ?? 0 : 0
-  return { ...game, phase: 'walked', takeHome }
 }
 
 export const startOrRestart = (
@@ -281,7 +207,7 @@ export const startOrRestart = (
   if (game.phase === 'idle') {
     return game.rounds.length > 0 ? { ...game, phase: 'asking' } : game
   }
-  if (game.phase !== 'wrong' && game.phase !== 'won' && game.phase !== 'walked') return game
+  if (game.phase !== 'wrong' && game.phase !== 'cleared') return game
 
   const fresh = newGame(bank, random)
   return fresh.rounds.length > 0 ? { ...fresh, phase: 'asking' } : fresh
@@ -294,7 +220,52 @@ export const isTriviaMessage = (value: unknown): value is TriviaMessage => {
       value.choice >= 0 && value.choice <= 3
   }
   return value.type === 'reveal' || value.type === 'next' ||
-    value.type === 'walk' || value.type === 'new'
+    value.type === 'new'
+}
+
+const isHistoryEntry = (value: unknown): value is TriviaHistory['games'][number] =>
+  isRecord(value) &&
+  typeof value.streak === 'number' && Number.isInteger(value.streak) && value.streak >= 0 &&
+  typeof value.at === 'number' && Number.isFinite(value.at) && value.at >= 0
+
+export const emptyHistory = (): TriviaHistory => ({ best: 0, games: [] })
+
+export const parseHistory = (value: unknown): TriviaHistory => {
+  if (
+    !isRecord(value) ||
+    typeof value.best !== 'number' ||
+    !Number.isInteger(value.best) ||
+    value.best < 0
+  ) {
+    return emptyHistory()
+  }
+  if (!Array.isArray(value.games)) return emptyHistory()
+
+  const entries: unknown[] = value.games
+  const games = entries.filter(isHistoryEntry)
+  if (games.length !== entries.length) return emptyHistory()
+
+  const best = value.best
+  if (games.some(game => game.streak > best)) return emptyHistory()
+  return {
+    best,
+    games: games.slice(0, 10).map(game => ({ streak: game.streak, at: game.at })),
+  }
+}
+
+export const addGame = (
+  history: TriviaHistory,
+  streak: number,
+  at: number,
+): TriviaHistory => {
+  const validHistory = parseHistory(history)
+  if (!Number.isInteger(streak) || streak < 0 || !Number.isFinite(at) || at < 0) {
+    return validHistory
+  }
+  return {
+    best: Math.max(validHistory.best, streak),
+    games: [{ streak, at }, ...validHistory.games].slice(0, 10),
+  }
 }
 
 const contains = (rect: TriviaRect, x: number, y: number): boolean =>
@@ -321,6 +292,7 @@ export const layout = (requestedWidth: number): TriviaLayout => {
   const questionCenterWidth = clawd ? questionWidth : width
   const statusY = height - 1
   const firstAnswerY = questionY + questionLines + 1
+  const historyY = firstAnswerY - 1
   const pairWidth = Math.floor((width - 2) / 2)
   const rightX = pairWidth + 2
   const rightWidth = Math.max(1, width - rightX)
@@ -330,8 +302,6 @@ export const layout = (requestedWidth: number): TriviaLayout => {
     makeRect(0, firstAnswerY + 3, pairWidth, 3),
     makeRect(rightX, firstAnswerY + 3, rightWidth, 3),
   ]
-  const walkWidth = Math.min(width, WALK_LABEL.length)
-  const walkButton = narrow ? null : makeRect(width - walkWidth, headerY, walkWidth)
   const startWidth = Math.min(width, START_LABEL.length)
   const startButton = narrow
     ? null
@@ -355,17 +325,11 @@ export const layout = (requestedWidth: number): TriviaLayout => {
   const targetAt = (x: number, y: number, phase: TriviaPhase): TriviaLayoutTarget | null => {
     const answer = answerAt(x, y)
     if (answer !== null) return { type: 'answer', choice: answer }
-    if (phase === 'asking' && walkButton && contains(walkButton, x, y)) {
-      return { type: 'walk' }
-    }
     if (phase === 'idle' && startButton && contains(startButton, x, y)) {
       return { type: 'start' }
     }
     if (phase === 'correct' && contains(nextButton, x, y)) return { type: 'next' }
-    if (
-      (phase === 'wrong' || phase === 'won' || phase === 'walked') &&
-      contains(newButton, x, y)
-    ) {
+    if ((phase === 'wrong' || phase === 'cleared') && contains(newButton, x, y)) {
       return { type: 'new' }
     }
     return null
@@ -383,10 +347,10 @@ export const layout = (requestedWidth: number): TriviaLayout => {
     questionWidth,
     questionCenterWidth,
     clawd,
+    historyY,
     statusY,
     narrowNoticeY: Math.floor(height / 2) - 1,
     answerBoxes,
-    walkButton,
     startButton,
     nextButton,
     newButton,

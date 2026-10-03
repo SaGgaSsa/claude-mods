@@ -77,14 +77,16 @@ pick it up the next time you open Claude Code there.
 
 ## trivia
 
-A quiz-show prize ladder in the band above the prompt, played only with clicks.
+A multiple-choice streak game in the band above the prompt, played only with clicks.
 
 ```
 /trivia            # show or hide the band (also /trivia on, /trivia off)
 ```
 
-- 15 questions, easy to hard, from $100 to $1,000,000. Safe levels at $1,000
-  and $32,000; `Walk away` keeps what you have won so far.
+- Questions come at random from the whole pool, without repeats, until the first
+  wrong answer. Each right answer adds one to the streak.
+- When a game ends the band shows your best streak and the last games. The last
+  10 games and the best streak are kept across sessions.
 - Click an answer box to lock it in. After a short suspense the right answer
   turns green and a wrong pick red.
 - Clawd hosts: it bounces and waves while the question types itself out, then
@@ -92,7 +94,7 @@ A quiz-show prize ladder in the band above the prompt, played only with clicks.
   keeps the terminal's own background.
 - Questions come from `trivia/questions.json`, in the format the
   [Open Trivia DB](https://opentdb.com/) API returns. HTML entities are decoded
-  and true/false questions are skipped. The game lasts for the session.
+  and true/false questions are skipped.
 
 ## Adding a mod
 

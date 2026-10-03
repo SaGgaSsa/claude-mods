@@ -6,8 +6,7 @@ export type TriviaPhase =
   | 'locked'
   | 'correct'
   | 'wrong'
-  | 'won'
-  | 'walked'
+  | 'cleared'
 
 export type TriviaQuestion = {
   difficulty: TriviaDifficulty
@@ -27,25 +26,30 @@ export type TriviaRound = {
 
 export type TriviaGame = {
   rounds: TriviaRound[]
-  prizes: number[]
   currentIndex: number
-  correctCount: number
+  streak: number
   phase: TriviaPhase
   selectedAnswer: 0 | 1 | 2 | 3 | null
-  takeHome: number
+}
+
+export type TriviaHistory = {
+  best: number
+  games: { streak: number; at: number }[]
 }
 
 export type TriviaProps = {
   game: TriviaGame | null
   error: string | null
   width: number
+  best: number
+  recent: number[]
+  newBest: boolean
 }
 
 export type TriviaMessage =
   | { type: 'pick'; choice: 0 | 1 | 2 | 3 }
   | { type: 'reveal' }
   | { type: 'next' }
-  | { type: 'walk' }
   | { type: 'new' }
 
 export type TriviaRect = {
@@ -57,7 +61,6 @@ export type TriviaRect = {
 
 export type TriviaLayoutTarget =
   | { type: 'answer'; choice: 0 | 1 | 2 | 3 }
-  | { type: 'walk' }
   | { type: 'start' }
   | { type: 'next' }
   | { type: 'new' }
@@ -74,10 +77,10 @@ export type TriviaLayout = {
   questionWidth: number
   questionCenterWidth: number
   clawd: TriviaRect | null
+  historyY: number
   statusY: number
   narrowNoticeY: number
   answerBoxes: TriviaRect[]
-  walkButton: TriviaRect | null
   startButton: TriviaRect | null
   nextButton: TriviaRect
   newButton: TriviaRect

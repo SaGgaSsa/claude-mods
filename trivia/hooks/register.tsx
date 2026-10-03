@@ -1,16 +1,24 @@
 import { atom, read, update } from 'claude-code'
 import type { Register } from 'claude-code'
 
-import type { TriviaGame, TriviaMessage, TriviaQuestion, TriviaProps } from '../types'
+import type {
+  TriviaGame,
+  TriviaHistory,
+  TriviaMessage,
+  TriviaQuestion,
+  TriviaProps,
+} from '../types'
 import {
+  addGame,
+  emptyHistory,
   isTriviaMessage,
   newGame,
   next,
+  parseHistory,
   parseQuestionBank,
   pick,
   reveal,
   startOrRestart,
-  walkAway,
   layout,
 } from './trivia'
 
@@ -20,11 +28,19 @@ const gameState = atom({ plugin: 'trivia', key: 'game' } as const, null)
 
 let questionBank: TriviaQuestion[] = []
 let bankError: string | null = null
+let history: TriviaHistory = emptyHistory()
+let latestResultIsBest = false
+let terminalResultRecorded = false
 
 const stageProps = (game: TriviaGame | null, width: number): TriviaProps => ({
   game,
   error: bankError,
   width,
+  best: history.best,
+  recent: history.games.map(entry => entry.streak),
+  newBest: Boolean(
+    latestResultIsBest && game && (game.phase === 'wrong' || game.phase === 'cleared'),
+  ),
 })
 
 const applyMessage = (game: TriviaGame | null, message: TriviaMessage): TriviaGame | null => {
@@ -39,8 +55,6 @@ const applyMessage = (game: TriviaGame | null, message: TriviaMessage): TriviaGa
       return reveal(game)
     case 'next':
       return next(game)
-    case 'walk':
-      return walkAway(game)
     case 'new':
       return startOrRestart(game, questionBank, Math.random)
   }
@@ -50,7 +64,7 @@ export const register: Register = on => {
   on('session.start', async ($, e, nextEvent) => {
     await $.command.register({
       name: 'trivia',
-      description: 'Play a multiple-choice prize ladder in the prompt band',
+      description: 'Play a multiple-choice streak game in the prompt band',
       argumentHint: '[on|off]',
       immediate: true,
     })
@@ -66,6 +80,14 @@ export const register: Register = on => {
       bankError = error instanceof Error ? error.message : String(error)
     }
 
+    try {
+      history = parseHistory(await $.store.get('history'))
+    } catch {
+      history = emptyHistory()
+    }
+    latestResultIsBest = false
+    terminalResultRecorded = false
+
     return nextEvent(e)
   })
 
@@ -80,6 +102,8 @@ export const register: Register = on => {
 
     await update($, isShown, () => shown)
     if (shown && !(await read($, gameState))) {
+      latestResultIsBest = false
+      terminalResultRecorded = false
       await update($, gameState, () => newGame(questionBank, Math.random))
     }
 
@@ -91,6 +115,25 @@ export const register: Register = on => {
     const current = await read($, gameState)
     const updated = applyMessage(current, e.data)
     if (updated === current) return {}
+
+    if (
+      updated &&
+      current &&
+      (updated.phase === 'wrong' || updated.phase === 'cleared') &&
+      current.phase !== 'wrong' &&
+      current.phase !== 'cleared' &&
+      !terminalResultRecorded
+    ) {
+      terminalResultRecorded = true
+      const wasBest = updated.streak > history.best
+      const timestamp = await $.clock.now()
+      history = addGame(history, updated.streak, timestamp)
+      latestResultIsBest = wasBest
+      await $.store.set('history', history)
+    } else if (e.data.type === 'new' && updated?.phase === 'asking') {
+      latestResultIsBest = false
+      terminalResultRecorded = false
+    }
 
     await update($, gameState, () => updated)
     return {}
