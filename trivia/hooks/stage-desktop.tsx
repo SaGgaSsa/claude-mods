@@ -436,7 +436,7 @@ const renderStage = (
   if (phase === 'correct') {
     children.push(Box({
       flexDirection: 'row',
-      justifyContent: 'center',
+      justifyContent: 'flex-end',
       children: [Button({
         key: 'next',
         label: 'Next',
