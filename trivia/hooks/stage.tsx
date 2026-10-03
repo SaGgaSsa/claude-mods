@@ -331,23 +331,6 @@ const drawAnswer = (
   writeText(canvas, truncate(answer, answerWidth), rect.x + 4, rect.y + 1, answerStyle)
 }
 
-const drawHistory = (
-  canvas: ReturnType<typeof createCanvas>,
-  props: TriviaProps,
-  geometry: TriviaLayout,
-) => {
-  if (props.best === 0 && props.recent.length === 0) return
-  const history = `Best ${props.best} · Last games: ${props.recent.join(' · ')}`
-  writeCentered(
-    canvas,
-    truncate(history, geometry.questionWidth),
-    geometry.questionX,
-    geometry.historyY,
-    geometry.questionCenterWidth,
-    { color: SOFT_WHITE },
-  )
-}
-
 const drawStatus = (
   canvas: ReturnType<typeof createCanvas>,
   props: TriviaProps,
@@ -418,9 +401,10 @@ const drawSparks = (
   }
 }
 
-const drawOutroButton = (
+const drawCardButton = (
   canvas: ReturnType<typeof createCanvas>,
   rect: TriviaRect,
+  label: string,
   hovered: boolean,
 ) => {
   const color = hovered ? BRIGHT_AMBER : AMBER
@@ -431,17 +415,17 @@ const drawOutroButton = (
   writeText(canvas, '\u2502', rect.x, rect.y + 1, style)
   writeText(canvas, '\u2502', rect.x + rect.width - 1, rect.y + 1, style)
   writeText(canvas, bottom, rect.x, rect.y + rect.height - 1, style)
-  writeCentered(canvas, 'New game', rect.x + 1, rect.y + 1, rect.width - 2, style)
+  writeCentered(canvas, label, rect.x + 1, rect.y + 1, rect.width - 2, style)
 }
 
-const drawOutroHistory = (
+const drawCardHistory = (
   canvas: ReturnType<typeof createCanvas>,
   props: TriviaProps,
-  game: NonNullable<TriviaProps['game']>,
+  streaks: number[],
   geometry: TriviaLayout,
 ) => {
   const chart = geometry.outro.chart
-  const recent = (props.recent.length > 0 ? props.recent.slice(0, 10) : [game.streak]).reverse()
+  const recent = streaks.slice(0, 10).reverse()
   const plotWidth = Math.max(0, recent.length * 3 - 1)
   const plotX = chart.x + Math.floor((chart.width - plotWidth) / 2)
   const bestLabel = `Best ${props.best}`
@@ -470,58 +454,100 @@ const drawOutroHistory = (
   }
 }
 
-const drawOutro = (
+type CardLine = { text: string; color: string; bold?: boolean; accent?: string }
+
+type Card = {
+  title: string
+  lines: CardLine[]
+  button: string | null
+  streaks: number[]
+  footer: string
+}
+
+// The intro and the final screen: a title and up to two lines centered on the button,
+// the button itself, the history chart and a footer hint.
+const drawCard = (
   canvas: ReturnType<typeof createCanvas>,
   props: TriviaProps,
   geometry: TriviaLayout,
-  hoverNewButton: boolean,
+  card: Card,
+  hovered: boolean,
 ) => {
-  const game = props.game
-  if (!game) return
-  const phase = game.phase
-  const round = game.round
-  // Same margin on both sides, so the text centers on the New game button and clears Clawd.
-  const contentX = geometry.questionX
-  const contentWidth = Math.max(1, geometry.width - 2 * contentX)
-  const title = phase === 'cleared' ? 'ALL CLEARED!' : 'GAME OVER'
-  writeCentered(canvas, title, contentX, geometry.outro.titleY, contentWidth, {
+  // Each line centers on the button; one too wide for that slides right, never onto Clawd.
+  const left = geometry.questionX
+  const room = Math.max(1, geometry.width - left)
+  const placeX = (length: number) =>
+    Math.max(left, Math.min(geometry.width - length, Math.floor((geometry.width - length) / 2)))
+
+  const title = truncate(card.title, room)
+  writeText(canvas, title, placeX(Array.from(title).length), geometry.outro.titleY, {
     color: AMBER,
     bold: true,
   })
 
-  const streakText = `Final streak ${game.streak}`
-  const marker = props.newBest ? ' \u00b7 new best!' : ''
-  const totalWidth = Array.from(streakText + marker).length
-  const streakX = contentX + Math.floor((contentWidth - totalWidth) / 2)
-  writeText(canvas, streakText, streakX, geometry.outro.streakY, {
+  const rows = [geometry.outro.streakY, geometry.outro.missedY]
+  card.lines.slice(0, rows.length).forEach((line, index) => {
+    const y = rows[index]!
+    const accent = line.accent ?? ''
+    const text = truncate(line.text, Math.max(0, room - Array.from(accent).length))
+    const x = placeX(Array.from(text + accent).length)
+    writeText(canvas, text, x, y, { color: line.color, bold: line.bold ?? false })
+    if (accent) {
+      writeText(canvas, accent, x + Array.from(text).length, y, { color: BRIGHT_AMBER, bold: true })
+    }
+  })
+
+  if (card.button) drawCardButton(canvas, geometry.outro.newButton, card.button, hovered)
+  if (card.streaks.length > 0) drawCardHistory(canvas, props, card.streaks, geometry)
+  writeCentered(canvas, truncate(card.footer, geometry.width), 0, geometry.statusY, geometry.width, {
+    color: '#8f8a80',
+  })
+}
+
+const outroCard = (props: TriviaProps): Card | null => {
+  const game = props.game
+  if (!game) return null
+  const round = game.round
+  const lines: CardLine[] = [{
+    text: `Final streak ${game.streak}`,
     color: SOFT_WHITE,
     bold: true,
-  })
-  if (marker) {
-    writeText(canvas, marker, streakX + Array.from(streakText).length, geometry.outro.streakY, {
-      color: BRIGHT_AMBER,
-      bold: true,
+    accent: props.newBest ? ' · new best!' : '',
+  }]
+  if (game.phase === 'wrong' && round) {
+    lines.push({
+      text: `Missed: ${round.question} → ${round.answers[round.correctIndex]}`,
+      color: '#b9b2a2',
     })
   }
 
-  if (phase === 'wrong' && round) {
-    const answer = round.answers[round.correctIndex]
-    const missed = `Missed: ${round.question} \u2192 ${answer}`
-    writeCentered(
-      canvas,
-      truncate(missed, contentWidth),
-      contentX,
-      geometry.outro.missedY,
-      contentWidth,
-      { color: '#b9b2a2' },
-    )
+  return {
+    title: game.phase === 'cleared' ? 'ALL CLEARED!' : 'GAME OVER',
+    lines,
+    button: 'New game',
+    streaks: props.recent.length > 0 ? props.recent : [game.streak],
+    footer: 'Click New game to play again',
   }
+}
 
-  drawOutroButton(canvas, geometry.outro.newButton, hoverNewButton)
-  drawOutroHistory(canvas, props, game, geometry)
-  writeCentered(canvas, 'Click New game to play again', 0, geometry.statusY, geometry.width, {
-    color: '#8f8a80',
-  })
+const introCard = (props: TriviaProps): Card => {
+  const count = props.game?.roundCount ?? 0
+  const problem = props.error
+    ? `Error: ${props.error}`
+    : count === 0 ? 'No valid questions are available.' : null
+
+  return {
+    title: '✦ TRIVIA ✦',
+    lines: [
+      { text: 'Answer until you miss', color: SOFT_WHITE, bold: true },
+      problem
+        ? { text: problem, color: '#e49a91' }
+        : { text: `${count} questions in the pool`, color: '#b9b2a2' },
+    ],
+    button: problem ? null : 'Start',
+    streaks: props.recent,
+    footer: problem ? '' : 'Click Start to play',
+  }
 }
 
 const drawStage = (props: TriviaProps, state: StageState) => {
@@ -548,19 +574,15 @@ const drawStage = (props: TriviaProps, state: StageState) => {
   }
 
   if (!game || phase === 'idle') {
-    const titleX = geometry.clawd ? geometry.questionX : 0
-    const titleWidth = geometry.clawd ? geometry.questionCenterWidth : geometry.width
-    writeCentered(canvas, '✦ TRIVIA ✦', titleX, geometry.titleY, titleWidth, {
-      color: AMBER,
-      bold: true,
-    })
-    drawHistory(canvas, props, geometry)
-    drawStatus(canvas, props, geometry)
+    drawCard(canvas, props, geometry, introCard(props), state.hoverNewButton)
     return canvas
   }
 
-  if ((phase === 'wrong' || phase === 'cleared') && state.view === 'outro') {
-    drawOutro(canvas, props, geometry, state.hoverNewButton)
+  const outro = (phase === 'wrong' || phase === 'cleared') && state.view === 'outro'
+    ? outroCard(props)
+    : null
+  if (outro) {
+    drawCard(canvas, props, geometry, outro, state.hoverNewButton)
     return canvas
   }
 
@@ -660,7 +682,7 @@ const Stage: ClientModule<TriviaProps, StageState> = (props, surface) => {
         ? null
         : geometry.answerAt(event.x, event.y)
       const visibleHover = hovered !== null && hovered < current.answersShown ? hovered : null
-      const hoverNewButton = event.type !== 'leave' && target?.type === 'new'
+      const hoverNewButton = event.type !== 'leave' && (target?.type === 'new' || target?.type === 'start')
       if (
         visibleHover !== current.hoverChoice ||
         hoverNewButton !== current.hoverNewButton

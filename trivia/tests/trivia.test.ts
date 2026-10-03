@@ -228,7 +228,18 @@ test('loads, saves and displays streak history in the mounted band', async ($, o
 
   const idleGrid = canvasOf(await ui.drawn({ in: 'stage' }))
   expectGridWidth(idleGrid, 60)
-  expect(idleGrid[4]!.join('')).toContain('Best 0 · Last games:')
+  const idleCard = geometry.outro
+  expect(idleGrid[idleCard.titleY]!.join('')).toContain('✦ TRIVIA ✦')
+  expect(idleGrid[idleCard.missedY]!.join('')).toContain(`${bank.length} questions in the pool`)
+  expect(idleGrid[idleCard.newButton.y + 1]!.join('')).toContain('Start')
+  expect(idleGrid[idleCard.historyY]!.join('')).toContain('Best 0 · Last games')
+  // The title, the button and the history all center on the same column.
+  const centerOf = (row: string[], text: string) => {
+    const line = row.join('')
+    return line.indexOf(text) + text.length / 2
+  }
+  const buttonCenter = idleCard.newButton.x + idleCard.newButton.width / 2
+  expect(Math.abs(centerOf(idleGrid[idleCard.titleY]!, '✦ TRIVIA ✦') - buttonCenter) <= 1).toBe(true)
 
   const startButton = geometry.startButton!
   await ui.pointer({
