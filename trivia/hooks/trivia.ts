@@ -11,7 +11,6 @@ import type {
   TriviaRound,
 } from '../types'
 
-const START_LABEL = '[ Start ]'
 const NEXT_LABEL = '[ Next question ]'
 const OUTRO_BUTTON_WIDTH = 20
 const CHART_WIDTH = 29
@@ -303,10 +302,6 @@ export const layout = (requestedWidth: number): TriviaLayout => {
     makeRect(0, firstAnswerY + 3, pairWidth, 3),
     makeRect(rightX, firstAnswerY + 3, rightWidth, 3),
   ]
-  const startWidth = Math.min(width, START_LABEL.length)
-  const startButton = narrow
-    ? null
-    : makeRect(Math.floor((width - startWidth) / 2), statusY, startWidth)
   const nextButton = makeRect(
     Math.max(0, width - NEXT_LABEL.length),
     statusY,
@@ -333,6 +328,8 @@ export const layout = (requestedWidth: number): TriviaLayout => {
       3,
     ),
   }
+  // The intro's Start shares the final screen's button.
+  const startButton = narrow ? null : outro.newButton
 
   const answerAt = (x: number, y: number): 0 | 1 | 2 | 3 | null => {
     const index = answerBoxes.findIndex(box => contains(box, x, y))
