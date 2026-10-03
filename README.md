@@ -111,18 +111,20 @@ A multiple-choice streak game in the band above the prompt, played only with cli
   geography, history, science, sport, music, film & TV, arts & literature,
   society & culture, food & drink), each split 35% easy, 40% medium, 25% hard.
   Only universal questions are kept: none tied to a region, none marked niche,
-  and none about US or UK states, presidents, leagues or TV.
+  and none about US or UK states, presidents, leagues or TV. Answers are at most
+  40 characters and questions at most 200, so they fit the boxes.
 
 ### Changing the questions
 
 `trivia/questions.json` uses the format the Open Trivia DB API returns, so it can
-be edited by hand. To rebuild it from The Trivia API (Windows, from the repo
-root; it replaces the whole bank):
+be edited by hand. To top it up from The Trivia API (Windows, from the repo root):
 
 ```
 powershell -ExecutionPolicy Bypass -File trivia/scripts/fetch-trivia-api.ps1
 ```
 
+It keeps the questions that still pass the rules above and fetches only what each
+category and difficulty is missing; `-Fresh` rebuilds the bank from scratch.
 `-PerCategory <n>` changes how many questions each category gets (the bank is
 capped at 1000). `trivia/scripts/fetch-questions.ps1` adds questions from
 [Open Trivia DB](https://opentdb.com/) instead; it skips duplicates, refuses to
