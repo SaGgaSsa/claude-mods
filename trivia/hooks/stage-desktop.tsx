@@ -502,49 +502,40 @@ const renderStage = (
     }
   }))
 
+  // One row under the cards: what happened on the left, the way on at the right.
+  const actionRow = (note: RenderElement | null, button: RenderElement) => Box({
+    flexDirection: 'row',
+    justifyContent: note ? 'space-between' : 'flex-end',
+    alignItems: 'center',
+    marginTop: 1,
+    paddingX: 1,
+    children: note ? [note, button] : [button],
+  })
+  const continueButton = Button({
+    key: 'continue',
+    label: 'Continue',
+    variant: 'primary',
+    dimColor: false,
+    onPress: showOutro,
+  })
+
   if (phase === 'correct') {
-    children.push(Box({
-      flexDirection: 'row',
-      justifyContent: 'flex-end',
-      children: [Button({
-        key: 'next',
-        label: 'Next',
-        variant: 'primary',
-        dimColor: false,
-        onPress: () => post({ type: 'next' }),
-      })],
-    }))
+    children.push(actionRow(null, Button({
+      key: 'next',
+      label: 'Next',
+      variant: 'primary',
+      dimColor: false,
+      onPress: () => post({ type: 'next' }),
+    })))
   } else if (phase === 'wrong') {
-    if (round) {
-      children.push(Text({
-        color: RED,
-        wrap: 'truncate',
-        children: `Correct answer: ${round.answers[round.correctIndex]}`,
-      }))
-    }
-    children.push(Box({
-      flexDirection: 'row',
-      justifyContent: 'center',
-      children: [Button({
-        key: 'continue',
-        label: 'Continue',
-        variant: 'primary',
-        dimColor: false,
-        onPress: showOutro,
-      })],
-    }))
+    const note = round ? Text({
+      color: RED,
+      wrap: 'truncate',
+      children: `Correct answer: ${round.answers[round.correctIndex]}`,
+    }) : null
+    children.push(actionRow(note, continueButton))
   } else if (phase === 'cleared') {
-    children.push(Box({
-      flexDirection: 'row',
-      justifyContent: 'center',
-      children: [Button({
-        key: 'continue',
-        label: 'Continue',
-        variant: 'primary',
-        dimColor: false,
-        onPress: showOutro,
-      })],
-    }))
+    children.push(actionRow(null, continueButton))
   }
 
   return Box({ flexDirection: 'column', gap: 0, flexGrow: 1, children })
