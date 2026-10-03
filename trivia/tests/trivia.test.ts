@@ -158,9 +158,23 @@ test('layout provides exact-width rows and a shared hit target for answer A', as
   const geometry = layout(60)
   expect(geometry.height).toBe(12)
   expect(geometry.answerBoxes).toHaveLength(4)
+  expect(geometry.clawd).toEqual({ x: 0, y: 1, width: 16, height: 4 })
+  expect(layout(59).clawd).toBeNull()
   const boxA = geometry.answerBoxes[0]!
   expect(geometry.answerAt(boxA.x + 2, boxA.y + 1)).toBe(0)
-  expect(geometry.targetAt(boxA.x + 2, boxA.y + 1)).toEqual({ type: 'answer', choice: 0 })
+  expect(geometry.targetAt(boxA.x + 2, boxA.y + 1, 'asking')).toEqual({
+    type: 'answer',
+    choice: 0,
+  })
+  expect(geometry.targetAt(geometry.newButton.x + 1, geometry.statusY, 'wrong')).toEqual({
+    type: 'new',
+  })
+  expect(geometry.targetAt(geometry.newButton.x + 1, geometry.statusY, 'walked')).toEqual({
+    type: 'new',
+  })
+  expect(geometry.targetAt(geometry.newButton.x + 1, geometry.statusY, 'correct')).toEqual({
+    type: 'next',
+  })
 
   on('session.start', (_, e) => ({ cwd: e.cwd }))
   on('command.register', (_, e) => ({ value: { command: e.name } }))
@@ -194,11 +208,11 @@ test('layout provides exact-width rows and a shared hit target for answer A', as
     scroll: { offset: 0, bodyRows: 12 },
     view: {},
   } as const
-  const mount = () => $.ui.mount({
+  const mount = (bodyColumns = 60) => $.ui.mount({
     plugin: 'trivia',
     surface: 'terminal',
     component: 'AbovePrompt',
-    props: bandProps,
+    props: { ...bandProps, bodyColumns },
   })
 
   let ui = await mount()
@@ -230,7 +244,21 @@ test('layout provides exact-width rows and a shared hit target for answer A', as
     in: 'stage',
   })
   expect(triviaProps(await ui.find({ key: 'stage' })).game?.phase).toBe('asking')
-  await ui.advance(1_600)
+
+  const clawdArea = geometry.clawd!
+  const firstFrame = canvasOf(await ui.drawn({ in: 'stage' }))
+  const clawdFrame = (grid: string[][]) => grid
+    .slice(clawdArea.y, clawdArea.y + clawdArea.height)
+    .map(row => row.slice(clawdArea.x, clawdArea.x + clawdArea.width).join(''))
+    .join('\n')
+  expect(/[▀▄█]/.test(clawdFrame(firstFrame))).toBe(true)
+  expect(firstFrame).toHaveLength(12)
+  expect(firstFrame.every(row => row.length === 60)).toBe(true)
+
+  await ui.advance(210)
+  const secondFrame = canvasOf(await ui.drawn({ in: 'stage' }))
+  expect(clawdFrame(secondFrame) !== clawdFrame(firstFrame)).toBe(true)
+  await ui.advance(1_390)
 
   const drawn = await ui.drawn({ in: 'stage' })
   const grid = canvasOf(drawn)
@@ -247,6 +275,63 @@ test('layout provides exact-width rows and a shared hit target for answer A', as
     in: 'stage',
   })
   expect(triviaProps(await ui.find({ key: 'stage' })).game?.phase).toBe('locked')
+
+  await ui.advance(2_000)
+  let liveGame = triviaProps(await ui.find({ key: 'stage' })).game
+  if (liveGame?.phase === 'correct') {
+    await ui.pointer({ type: 'down', x: 0, y: 0, button: 'left', in: 'stage' })
+    await ui.advance(1_600)
+    liveGame = triviaProps(await ui.find({ key: 'stage' })).game
+    if (!liveGame || liveGame.phase !== 'asking') throw new Error('Expected the next question')
+
+    const round = liveGame.rounds[liveGame.currentIndex]!
+    const wrongChoice = round.correctIndex === 0 ? 1 : 0
+    const wrongBox = geometry.answerBoxes[wrongChoice]!
+    await ui.pointer({
+      type: 'down',
+      x: wrongBox.x + 2,
+      y: wrongBox.y + 1,
+      button: 'left',
+      in: 'stage',
+    })
+    await ui.advance(2_000)
+    liveGame = triviaProps(await ui.find({ key: 'stage' })).game
+  }
+  expect(liveGame?.phase).toBe('wrong')
+
+  const clickNewGame = async () => ui.pointer({
+    type: 'down',
+    x: geometry.newButton.x + 1,
+    y: geometry.newButton.y,
+    button: 'left',
+    in: 'stage',
+  })
+  await clickNewGame()
+  liveGame = triviaProps(await ui.find({ key: 'stage' })).game
+  expect(liveGame?.phase).toBe('asking')
+  expect(liveGame?.currentIndex).toBe(0)
+
+  const walkButton = geometry.walkButton!
+  await ui.pointer({
+    type: 'down',
+    x: walkButton.x + 1,
+    y: walkButton.y,
+    button: 'left',
+    in: 'stage',
+  })
+  expect(triviaProps(await ui.find({ key: 'stage' })).game?.phase).toBe('walked')
+  await clickNewGame()
+  liveGame = triviaProps(await ui.find({ key: 'stage' })).game
+  expect(liveGame?.phase).toBe('asking')
+  expect(liveGame?.currentIndex).toBe(0)
+
+  await ui.unmount()
+
+  ui = await mount(59)
+  const narrowGrid = canvasOf(await ui.drawn({ in: 'stage' }))
+  expect(narrowGrid).toHaveLength(12)
+  expect(narrowGrid.every(row => row.length === 59)).toBe(true)
+  expect(/[▀▄█]/.test(narrowGrid.flat().join(''))).toBe(false)
   await ui.unmount()
 })
 

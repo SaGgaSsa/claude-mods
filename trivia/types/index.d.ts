@@ -70,6 +70,10 @@ export type TriviaLayout = {
   titleY: number
   questionY: number
   questionLines: number
+  questionX: number
+  questionWidth: number
+  questionCenterWidth: number
+  clawd: TriviaRect | null
   statusY: number
   narrowNoticeY: number
   answerBoxes: TriviaRect[]
@@ -78,7 +82,7 @@ export type TriviaLayout = {
   nextButton: TriviaRect
   newButton: TriviaRect
   answerAt: (x: number, y: number) => 0 | 1 | 2 | 3 | null
-  targetAt: (x: number, y: number) => TriviaLayoutTarget | null
+  targetAt: (x: number, y: number, phase: TriviaPhase) => TriviaLayoutTarget | null
 }
 
 declare module 'claude-code' {

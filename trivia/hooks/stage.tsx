@@ -1,6 +1,8 @@
 import type { ClientModule } from 'claude-code'
 
 import type { TriviaLayout, TriviaPhase, TriviaProps, TriviaRect } from '../types'
+import type { ClawdLook } from './clawd'
+import { drawClawd } from './clawd'
 import {
   currentRound,
   formatMoney,
@@ -13,6 +15,7 @@ import { createCanvas, fillRect, toElement, writeCentered, writeText } from './c
 const TICK_MS = 70
 const LOCK_TICKS = 26
 const CORRECT_FLASH_TICKS = 12
+const QUIET_BLINK_TICKS = 43
 
 const AMBER = '#d6ad55'
 const BRIGHT_AMBER = '#ffe08a'
@@ -34,6 +37,7 @@ type StageState = {
   answerDelayTicks: number
   hoverChoice: number | null
   revealSent: boolean
+  blinkActive: boolean
 }
 
 type AnimationStep = {
@@ -59,6 +63,7 @@ const initialState = (props: TriviaProps): StageState => ({
   answerDelayTicks: 0,
   hoverChoice: null,
   revealSent: false,
+  blinkActive: false,
 })
 
 const syncState = (state: StageState, props: TriviaProps): StageState => {
@@ -79,6 +84,7 @@ const syncState = (state: StageState, props: TriviaProps): StageState => {
     answerDelayTicks: questionChanged || startedAsking ? 0 : state.answerDelayTicks,
     hoverChoice: null,
     revealSent: false,
+    blinkActive: false,
   }
 }
 
@@ -136,6 +142,63 @@ const truncate = (value: string, width: number): string => {
   if (width <= 0) return ''
   return `${characters.slice(0, Math.max(0, width - 1)).join('')}…`
 }
+
+const clawdLookFor = (props: TriviaProps, state: StageState): ClawdLook => {
+  const phase = phaseOf(props)
+  if (phase === 'asking') {
+    const speaking = state.questionCharacters < state.questionLength || state.answersShown < 4
+    if (speaking) {
+      const beat = Math.floor(state.tick / 3)
+      return {
+        arms: beat % 2 === 0 ? 'up' : 'out',
+        eyes: 'open',
+        jump: Math.floor(state.tick / 2) % 2 === 0,
+        offset: 0,
+        step: beat % 2 === 0,
+      }
+    }
+  }
+
+  if (phase === 'locked') {
+    const tremble = Math.floor((state.tick - state.phaseStartedAt) / 3) % 2
+    return {
+      arms: 'down',
+      eyes: 'looking',
+      jump: false,
+      offset: tremble === 0 ? 0 : 1,
+      step: false,
+    }
+  }
+  if (phase === 'correct' || phase === 'won') {
+    const beat = Math.floor((state.tick - state.phaseStartedAt) / 3)
+    return {
+      arms: 'up',
+      eyes: 'open',
+      jump: (phase === 'won' || state.tick - state.phaseStartedAt < CORRECT_FLASH_TICKS) &&
+        beat % 2 === 0,
+      offset: 0,
+      step: false,
+    }
+  }
+  if (phase === 'wrong') {
+    return { arms: 'down', eyes: 'closed', jump: false, offset: 0, step: false }
+  }
+
+  return {
+    arms: 'down',
+    eyes: state.blinkActive ? 'closed' : 'open',
+    jump: false,
+    offset: 0,
+    step: false,
+  }
+}
+
+const isQuietBlinkPhase = (state: StageState): boolean =>
+  state.phaseKey === 'idle' ||
+  state.phaseKey === 'walked' ||
+  (state.phaseKey === 'asking' &&
+    state.questionCharacters >= state.questionLength &&
+    state.answersShown >= 4)
 
 const placeButton = (
   canvas: ReturnType<typeof createCanvas>,
@@ -343,6 +406,8 @@ const drawStage = (props: TriviaProps, state: StageState) => {
     geometry,
   )
 
+  if (geometry.clawd) drawClawd(canvas, geometry.clawd, clawdLookFor(props, state))
+
   if (geometry.narrow) {
     writeCentered(
       canvas,
@@ -357,7 +422,9 @@ const drawStage = (props: TriviaProps, state: StageState) => {
   }
 
   if (!game || phase === 'idle') {
-    writeCentered(canvas, '✦ TRIVIA LADDER ✦', 0, geometry.titleY, geometry.width, {
+    const titleX = geometry.clawd ? geometry.questionX : 0
+    const titleWidth = geometry.clawd ? geometry.questionCenterWidth : geometry.width
+    writeCentered(canvas, '✦ TRIVIA LADDER ✦', titleX, geometry.titleY, titleWidth, {
       color: AMBER,
       bold: true,
     })
@@ -367,12 +434,16 @@ const drawStage = (props: TriviaProps, state: StageState) => {
 
   if (round) {
     const question = Array.from(round.question).slice(0, state.questionCharacters).join('')
-    const lines = wrapText(question, geometry.width - 4, geometry.questionLines)
+    const lines = wrapText(question, geometry.questionWidth, geometry.questionLines)
     lines.forEach((line, index) => {
-      writeCentered(canvas, line, 0, geometry.questionY + index, geometry.width, {
-        color: SOFT_WHITE,
-        bold: true,
-      })
+      writeCentered(
+        canvas,
+        line,
+        geometry.questionX,
+        geometry.questionY + index,
+        geometry.questionCenterWidth,
+        { color: SOFT_WHITE, bold: true },
+      )
     })
 
     const correctFlashOn = phase !== 'correct' ||
@@ -408,13 +479,35 @@ const Stage: ClientModule<TriviaProps, StageState> = (props, surface) => {
 
   if (!state) {
     state = initialState(props)
+    let quietTicks = 0
     surface.every(TICK_MS, () => {
       const current = surface.state
       if (!current) return
       const step = advanceAnimation(current)
-      if (!step) return
-      surface.setState(step.state)
-      if (step.reveal) surface.post({ type: 'reveal' })
+      if (step) {
+        quietTicks = 0
+        surface.setState(step.state)
+        if (step.reveal) surface.post({ type: 'reveal' })
+        return
+      }
+      if (current.blinkActive) {
+        quietTicks = 0
+        surface.setState({ ...current, blinkActive: false })
+        return
+      }
+      if (!isQuietBlinkPhase(current)) {
+        quietTicks = 0
+        return
+      }
+      quietTicks += 1
+      if (quietTicks >= QUIET_BLINK_TICKS) {
+        quietTicks = 0
+        surface.setState({
+          ...current,
+          tick: current.tick + QUIET_BLINK_TICKS,
+          blinkActive: true,
+        })
+      }
     })
     surface.setState(state)
   } else {
@@ -428,7 +521,7 @@ const Stage: ClientModule<TriviaProps, StageState> = (props, surface) => {
   const displayedState = state ?? initialState(props)
   surface.onPointer(event => {
     const current = surface.state ?? displayedState
-    const target = geometry.targetAt(event.x, event.y)
+    const target = geometry.targetAt(event.x, event.y, current.phaseKey)
 
     if (event.type !== 'down') {
       const hovered = event.type === 'leave' || current.phaseKey !== 'asking'

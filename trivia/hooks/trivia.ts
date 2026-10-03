@@ -315,6 +315,10 @@ export const layout = (requestedWidth: number): TriviaLayout => {
   const titleY = 2
   const questionY = 1
   const questionLines = 3
+  const clawd = width >= 60 ? makeRect(0, questionY, 16, 4) : null
+  const questionX = clawd ? 18 : 0
+  const questionWidth = clawd ? width - questionX : Math.max(1, width - 4)
+  const questionCenterWidth = clawd ? questionWidth : width
   const statusY = height - 1
   const firstAnswerY = questionY + questionLines + 1
   const pairWidth = Math.floor((width - 2) / 2)
@@ -348,13 +352,22 @@ export const layout = (requestedWidth: number): TriviaLayout => {
     return index >= 0 ? index as 0 | 1 | 2 | 3 : null
   }
 
-  const targetAt = (x: number, y: number): TriviaLayoutTarget | null => {
+  const targetAt = (x: number, y: number, phase: TriviaPhase): TriviaLayoutTarget | null => {
     const answer = answerAt(x, y)
     if (answer !== null) return { type: 'answer', choice: answer }
-    if (walkButton && contains(walkButton, x, y)) return { type: 'walk' }
-    if (startButton && contains(startButton, x, y)) return { type: 'start' }
-    if (contains(nextButton, x, y)) return { type: 'next' }
-    if (contains(newButton, x, y)) return { type: 'new' }
+    if (phase === 'asking' && walkButton && contains(walkButton, x, y)) {
+      return { type: 'walk' }
+    }
+    if (phase === 'idle' && startButton && contains(startButton, x, y)) {
+      return { type: 'start' }
+    }
+    if (phase === 'correct' && contains(nextButton, x, y)) return { type: 'next' }
+    if (
+      (phase === 'wrong' || phase === 'won' || phase === 'walked') &&
+      contains(newButton, x, y)
+    ) {
+      return { type: 'new' }
+    }
     return null
   }
 
@@ -366,6 +379,10 @@ export const layout = (requestedWidth: number): TriviaLayout => {
     titleY,
     questionY,
     questionLines,
+    questionX,
+    questionWidth,
+    questionCenterWidth,
+    clawd,
     statusY,
     narrowNoticeY: Math.floor(height / 2) - 1,
     answerBoxes,
