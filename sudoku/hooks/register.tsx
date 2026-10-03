@@ -12,6 +12,7 @@ import type {
   PickerProps,
   SudokuGame,
 } from '../types'
+import { desktopBoardDimensions } from './desktop-shared'
 import { boardContentHeight, controlsHeight, geometryForPanel, pickerHeight } from './geometry'
 import { PAPER, PLAYER, WOOD } from './palette'
 import { conflicts, moveCursor, newGame, setDigit } from './sudoku'
@@ -293,6 +294,37 @@ export const register: Register = on => {
           {bodyContent}
         </Box>
       )
+    }
+
+    if (e.surface === 'desktop' && Client) {
+      if (!current || choosingDifficulty) {
+        const pickerProps: PickerProps = {
+          difficulty: current?.difficulty ?? null,
+          hasGame: current !== null,
+          geometry,
+        }
+        const cardHeight = pickerHeight(current ? 4 : 3)
+        const picker = (
+          <Client key={PICKER} module="./picker-desktop.tsx" props={pickerProps} />
+        )
+        return finish(picker, cardHeight, geometry.width)
+      }
+
+      const board = boardProps(current, geometry)
+      const controlProps = controlsProps(current, geometry, keyboardUsed)
+      const dimensions = desktopBoardDimensions(geometry)
+      const content = (
+        <Box flexDirection="column" alignItems="center" rowGap={1}>
+          <Client key={BOARD} module="./board-desktop.tsx" props={board} />
+          <Client
+            key={CONTROLS}
+            module="./controls-desktop.tsx"
+            props={controlProps}
+            width={dimensions.width}
+          />
+        </Box>
+      )
+      return finish(content, dimensions.height + 13, dimensions.width)
     }
 
     if (!current || choosingDifficulty) {

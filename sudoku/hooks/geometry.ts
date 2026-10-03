@@ -11,26 +11,17 @@ export type BoardGeometry = GeometryProps & {
   pickerRowAt: (x: number, y: number, rowCount: number, height: number) => number | null
 }
 
-export type ControlsAction =
-  | { type: 'digit'; digit: number; key: string }
-  | { type: 'new'; key: 'new' }
+export type ControlsAction = { type: 'new'; key: 'new' }
 
 export type ControlsGeometry = {
   width: number
   height: number
   innerWidth: number
-  innerHeight: number
-  tileWidth: number
-  tileHeight: number
+  buttonHeight: number
   statusY: number
   hintY: number
   statusBandY: number
-  keypadX: number
-  keypadWidth: number
-  keypadY: number
-  clearY: number
   newY: number
-  tilePosition: (row: number, col: number) => { x: number; y: number }
   actionAt: (x: number, y: number) => ControlsAction | null
 }
 
@@ -96,70 +87,37 @@ export const geometryAtScale = (requestedScale: number): BoardGeometry => {
 }
 
 export const controlsGeometry = (board: GeometryProps): ControlsGeometry => {
-  const tileHeight = board.scale
-  const tileWidth = board.cellWidth
   const width = board.width
   const height = controlsHeight(board.scale)
   const innerWidth = width - FRAME * 2
-  const innerHeight = height - FRAME * 2
-  const keypadWidth = tileWidth * 3
+  const buttonHeight = board.scale
   const statusY = FRAME
   const hintY = FRAME + 1
   const statusBandY = FRAME + 2
-  const keypadX = FRAME + Math.floor((innerWidth - keypadWidth) / 2)
-  const keypadY = statusBandY + 1
-  const tilePosition = (row: number, col: number) => ({
-    x: keypadX + col * tileWidth,
-    y: keypadY + row * tileHeight,
-  })
-  const clearY = tilePosition(3, 0).y
-  const newY = keypadY + tileHeight * 4
+  const newY = FRAME + 3
 
   const actionAt = (x: number, y: number): ControlsAction | null => {
     if (x < 0 || y < 0 || x >= width || y >= height) return null
-    if (y >= newY && y < newY + tileHeight && x >= FRAME && x < width - FRAME) {
+    if (y >= newY && y < newY + buttonHeight && x >= FRAME && x < width - FRAME) {
       return { type: 'new', key: 'new' }
     }
-
-    const keypadEndY = clearY + tileHeight
-    if (y < keypadY || y >= keypadEndY || x < keypadX || x >= keypadX + keypadWidth) {
-      return null
-    }
-
-    const row = Math.floor((y - keypadY) / tileHeight)
-    if (row === 3) return { type: 'digit', digit: 0, key: 'digit:0' }
-
-    const col = Math.floor((x - keypadX) / tileWidth)
-    const digits = [
-      [7, 8, 9],
-      [4, 5, 6],
-      [1, 2, 3],
-    ]
-    const digit = digits[row]![col]!
-    return { type: 'digit', digit, key: `digit:${digit}` }
+    return null
   }
 
   return {
     width,
     height,
     innerWidth,
-    innerHeight,
-    tileWidth,
-    tileHeight,
+    buttonHeight,
     statusY,
     hintY,
     statusBandY,
-    keypadX,
-    keypadWidth,
-    keypadY,
-    clearY,
     newY,
-    tilePosition,
     actionAt,
   }
 }
 
-export const controlsHeight = (scale: number): number => 5 * Math.max(1, Math.floor(scale)) + 5
+export const controlsHeight = (scale: number): number => Math.max(1, Math.floor(scale)) + 5
 
 export const geometryForPanel = (bodyColumns: number, bodyRows?: number): GeometryProps => {
   let chosen = geometryAtScale(1)

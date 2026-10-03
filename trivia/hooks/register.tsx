@@ -10,6 +10,7 @@ import type {
   StageGame,
 } from '../types'
 import type { GameSelection } from './trivia'
+import { clawdSvgForPhase } from './clawd-svg'
 import {
   addGame,
   beginGame,
@@ -27,6 +28,8 @@ import {
 } from './trivia'
 
 const STAGE = 'stage'
+const DESKTOP_CLAWD_COLUMNS = 8
+const DESKTOP_CLAWD_ROWS = 3
 const isShown = atom({ plugin: 'trivia', key: 'isShown' } as const, false)
 const gameState = atom({ plugin: 'trivia', key: 'game' } as const, null)
 
@@ -52,10 +55,11 @@ export const stageGame = (
   }
 }
 
-const stageProps = (game: TriviaGame | null, width: number): TriviaProps => ({
+const stageProps = (game: TriviaGame | null, width: number, maxRows?: number): TriviaProps => ({
   game: stageGame(game, questionBank.length),
   error: bankError,
   width,
+  ...(maxRows === undefined ? {} : { maxRows }),
   best: history.best,
   recent: history.games.map(entry => entry.streak),
   newBest: Boolean(
@@ -224,6 +228,28 @@ export const register: Register = on => {
     const bodyColumns = e.props.bodyColumns
     const geometry = layout(Math.max(1, Math.min(bodyColumns, 96)))
     const current = await read($, gameState)
+
+    if (e.surface === 'desktop' && 'Svg' in elements) {
+      const Svg = elements.Svg
+      const sprite = clawdSvgForPhase(current?.phase ?? 'idle')
+      const desktopRows = Math.max(1, Math.min(e.props.maxRows, e.props.scroll.bodyRows) - 1)
+      return (
+        <Box width="100%" position="relative" flexDirection="column" flexShrink={0}>
+          <Client
+            key={STAGE}
+            module="./stage-desktop.tsx"
+            props={stageProps(current, geometry.width, desktopRows)}
+            width="100%"
+          />
+          <Box key="clawd-overlay" position="absolute" left={0} top={0}
+            width={DESKTOP_CLAWD_COLUMNS}
+            height={DESKTOP_CLAWD_ROWS}
+            flexDirection="column" justifyContent="center" alignItems="center">
+            <Svg source={sprite.source} alt={sprite.alt} width={48} height={27} />
+          </Box>
+        </Box>
+      )
+    }
 
     return (
       <Box width={bodyColumns} flexDirection="row" justifyContent="center" flexShrink={0}>
