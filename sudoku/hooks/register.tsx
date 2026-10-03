@@ -316,7 +316,12 @@ export const register: Register = on => {
       const content = (
         <Box flexDirection="column" alignItems="center" rowGap={1}>
           <Client key={BOARD} module="./board-desktop.tsx" props={board} />
-          <Client key={CONTROLS} module="./controls-desktop.tsx" props={controlProps} />
+          <Client
+            key={CONTROLS}
+            module="./controls-desktop.tsx"
+            props={controlProps}
+            width={dimensions.width}
+          />
         </Box>
       )
       return finish(content, dimensions.height + 13, dimensions.width)

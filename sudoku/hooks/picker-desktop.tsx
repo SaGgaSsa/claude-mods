@@ -1,7 +1,7 @@
 import type { ClientModule } from 'claude-code'
 
 import type { Difficulty, PickerMessage, PickerProps } from '../types'
-import { CURSOR, GIVEN, PAPER, PLAYER, WOOD } from './palette'
+import { PAPER, WOOD } from './palette'
 
 const DIFFICULTIES: { difficulty: Difficulty; hotkey: string; label: string; givens: number }[] = [
   { difficulty: 'easy', hotkey: 'e', label: 'Easy', givens: 40 },
@@ -58,8 +58,7 @@ const Picker: ClientModule<PickerProps, PickerState> = (props, surface) => {
             key={`difficulty:${option.difficulty}`}
             hotkey={option.hotkey}
             label={`${option.label} \u00b7 ${option.givens} given`}
-            color={isSelected ? GIVEN : PLAYER}
-            backgroundColor={isSelected ? CURSOR : PAPER}
+            variant={isSelected ? 'primary' : 'secondary'}
             onPress={() => send({ type: 'choose', difficulty: option.difficulty })}
           />
         )
@@ -68,9 +67,8 @@ const Picker: ClientModule<PickerProps, PickerState> = (props, surface) => {
         <Button
           key="cancel"
           hotkey="c"
-          plain
           label="Cancel"
-          color={PLAYER}
+          variant="secondary"
           onPress={() => send({ type: 'cancel' })}
         />
       )}

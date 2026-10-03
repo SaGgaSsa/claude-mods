@@ -2,7 +2,11 @@ import { expect, mock, test } from 'claude-code/testing'
 import type { FoundElement } from 'claude-code/testing'
 
 import type { BoardProps } from '../types'
-import { desktopCellAt, desktopCellPosition } from '../hooks/desktop-shared'
+import {
+  desktopBoardDimensions,
+  desktopCellAt,
+  desktopCellPosition,
+} from '../hooks/desktop-shared'
 
 const PANE_PROPS = {
   title: 'Sudoku',
@@ -45,6 +49,9 @@ test('desktop uses flex Clients for the game and keeps terminal Clients unchange
 
   expect((await ui.find({ key: 'picker' }))?.props.module).toBe('hooks/picker-desktop.tsx')
   expect(await ui.find({ type: 'Text', text: 'Choose a difficulty', in: 'picker' })).toBeDefined()
+  expect((await ui.find({ key: 'difficulty:easy', in: 'picker' }))?.props.variant).toBe('primary')
+  expect((await ui.find({ key: 'difficulty:medium', in: 'picker' }))?.props.variant)
+    .toBe('secondary')
   await ui.press({ key: 'difficulty:medium' })
 
   let board = await ui.find({ key: 'board' })
@@ -52,6 +59,9 @@ test('desktop uses flex Clients for the game and keeps terminal Clients unchange
   expect((await ui.find({ key: 'controls' }))?.props.module).toBe('hooks/controls-desktop.tsx')
 
   const state = boardProps(board)
+  expect((await ui.find({ key: 'controls' }))?.props.width)
+    .toBe(desktopBoardDimensions(state.geometry).width)
+  expect((await ui.find({ key: 'digit:1', in: 'controls' }))?.props.variant).toBe('secondary')
   const empty = state.board.indexOf('0')
   const position = desktopCellPosition(
     state.geometry,
@@ -68,6 +78,7 @@ test('desktop uses flex Clients for the game and keeps terminal Clients unchange
   expect(boardProps(await ui.find({ key: 'board' })).board[empty]).toBe('5')
   await ui.press({ key: 'digit:7' })
   expect(boardProps(await ui.find({ key: 'board' })).board[empty]).toBe('7')
+  expect((await ui.find({ key: 'digit:7', in: 'controls' }))?.props.variant).toBe('primary')
   await ui.press({ key: 'digit:0' })
   expect(boardProps(await ui.find({ key: 'board' })).board[empty]).toBe('0')
 

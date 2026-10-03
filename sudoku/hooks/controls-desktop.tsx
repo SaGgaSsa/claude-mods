@@ -1,7 +1,8 @@
 import type { ClientModule } from 'claude-code'
 
 import type { ControlsMessage, ControlsProps } from '../types'
-import { CLASH, CURSOR, GIVEN, PAPER, PAPER_ALT, PLAYER, WOOD } from './palette'
+import { desktopBoardDimensions } from './desktop-shared'
+import { CLASH, PAPER, PLAYER, WOOD } from './palette'
 
 type ControlsState = { selected: string | null }
 type ControlsAction =
@@ -22,9 +23,8 @@ const MOVES: Record<string, [number, number]> = {
 }
 
 const DIGITS = [
-  [7, 8, 9],
-  [4, 5, 6],
-  [1, 2, 3],
+  [1, 2, 3, 4, 5],
+  [6, 7, 8, 9],
 ]
 
 const titleCase = (difficulty: ControlsProps['difficulty']) =>
@@ -77,13 +77,20 @@ const Controls: ClientModule<ControlsProps, ControlsState> = (props, surface) =>
     : `${titleCase(props.difficulty)} \u00b7 ${props.filled}/81 filled`
 
   return (
-    <Box flexDirection="column" alignItems="center" rowGap={1} padding={1} backgroundColor={PAPER}>
+    <Box
+      flexDirection="column"
+      alignItems="center"
+      rowGap={1}
+      padding={1}
+      width="100%"
+      backgroundColor={PAPER}
+    >
       <Text bold color={props.isSolved ? '#245a2c' : WOOD}>{status}</Text>
       {props.clashes > 0 && <Text color={CLASH}>{`${props.clashes} in conflict`}</Text>}
       {!props.keyboardActive && <Text color={PLAYER}>Click the board to use the keyboard</Text>}
       <Box flexDirection="column" alignItems="center" rowGap={1}>
         {DIGITS.map((row, rowIndex) => (
-          <Box key={`digits:${rowIndex}`} flexDirection="row" columnGap={1}>
+          <Box key={`digits:${rowIndex}`} flexDirection="row" justifyContent="center" columnGap={1}>
             {row.map(digit => {
               const key = `digit:${digit}`
               const isSelected = selected === key
@@ -92,35 +99,34 @@ const Controls: ClientModule<ControlsProps, ControlsState> = (props, surface) =>
                   key={key}
                   hotkey={String(digit)}
                   label={String(digit)}
-                  color={isSelected ? GIVEN : PLAYER}
-                  backgroundColor={isSelected ? CURSOR : rowIndex % 2 === 0 ? PAPER_ALT : PAPER}
+                  variant={isSelected ? 'primary' : 'secondary'}
                   onPress={() => enter(digit)}
                 />
               )
             })}
+            {rowIndex === 1 && (
+              <Button
+                key="digit:0"
+                hotkey="0"
+                label="Clear"
+                variant={selected === 'digit:0' ? 'primary' : 'secondary'}
+                onPress={() => enter(0)}
+              />
+            )}
+            {rowIndex === 1 && (
+              <Button
+                key="new"
+                hotkey="n"
+                label="New game"
+                variant={selected === 'new' ? 'primary' : 'secondary'}
+                onPress={() => {
+                  surface.setState({ selected: 'new' })
+                  withGeometry({ type: 'new' })
+                }}
+              />
+            )}
           </Box>
         ))}
-      </Box>
-      <Box flexDirection="row" columnGap={1}>
-        <Button
-          key="digit:0"
-          hotkey="0"
-          label="Clear"
-          color={selected === 'digit:0' ? GIVEN : PLAYER}
-          backgroundColor={selected === 'digit:0' ? CURSOR : PAPER_ALT}
-          onPress={() => enter(0)}
-        />
-        <Button
-          key="new"
-          hotkey="n"
-          label="New game"
-          color={selected === 'new' ? GIVEN : PLAYER}
-          backgroundColor={selected === 'new' ? CURSOR : PAPER_ALT}
-          onPress={() => {
-            surface.setState({ selected: 'new' })
-            withGeometry({ type: 'new' })
-          }}
-        />
       </Box>
     </Box>
   )
