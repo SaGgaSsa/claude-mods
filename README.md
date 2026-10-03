@@ -97,6 +97,15 @@ A multiple-choice streak game in the band above the prompt, played only with cli
 - Questions come from `trivia/questions.json`, in the format the
   [Open Trivia DB](https://opentdb.com/) API returns. HTML entities are decoded
   and true/false questions are skipped.
+- To add questions from the API (up to 50 per batch, duplicates skipped), from
+  the repo root on Windows:
+
+  ```
+  powershell -ExecutionPolicy Bypass -File trivia/scripts/fetch-questions.ps1 -Batches 4
+  ```
+
+  `-Category <id>` and `-Difficulty easy|medium|hard` filter them. Restart
+  Claude Code or run `/reload-plugins` to load the new questions.
 
 ## Adding a mod
 
