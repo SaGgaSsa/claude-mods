@@ -8,13 +8,18 @@ import {
   decodeEntities,
   emptyHistory,
   layout,
+  markSeen,
   newGame,
   next,
+  orderByUnseen,
   parseHistory,
   parseQuestionBank,
+  parseSeen,
   pick,
+  questionId,
   reveal,
   startOrRestart,
+  seenForNewGame,
 } from '../hooks/trivia'
 import { stageGame } from '../hooks/register'
 
@@ -43,6 +48,18 @@ const sourceQuestion = {
   correct_answer: 'A &amp; B',
   incorrect_answers: ['C &amp; D', 'E', 'F'],
 }
+
+const bankSourceFor = (bank: TriviaQuestion[]): string => JSON.stringify({
+  response_code: 0,
+  results: bank.map(question => ({
+    type: 'multiple',
+    difficulty: question.difficulty,
+    category: question.category,
+    question: question.question,
+    correct_answer: question.correctAnswer,
+    incorrect_answers: question.incorrectAnswers,
+  })),
+})
 
 test('decodes entities and filters boolean and malformed bank entries', () => {
   const entities = '&quot;&amp;&apos;&lt;&gt;&nbsp;&eacute;&aacute;&iacute;&oacute;&uacute;' +
@@ -85,6 +102,36 @@ test('shuffles every bank question without repeats and keeps correct answer keys
   expect(game.phase).toBe('idle')
   expect(game.streak).toBe(0)
   expect(newGame(sampleBank(3), fixedRandom).rounds).toHaveLength(3)
+})
+
+test('hashes normalized questions and cycles through unseen questions first', () => {
+  const bank = sampleBank(6)
+  const firstId = questionId(bank[0]!.question)
+  const secondId = questionId(bank[1]!.question)
+  const seen = [firstId, questionId(bank[4]!.question)]
+  const ordered = orderByUnseen(bank, seen, fixedRandom)
+  const orderedIds = ordered.map(question => questionId(question.question))
+
+  expect(questionId('  WHAT IS π?  ')).toBe(questionId('what is π?'))
+  expect(questionId('What is π?')).not.toBe(questionId('What is pi?'))
+  expect(firstId).toMatch(/^[\da-f]{8}$/)
+  expect(ordered).toHaveLength(bank.length)
+  expect(new Set(orderedIds).size).toBe(bank.length)
+  expect(orderedIds.slice(0, 4).every(id => !seen.includes(id))).toBe(true)
+  expect(orderedIds.slice(4).every(id => seen.includes(id))).toBe(true)
+
+  const restarted = newGame(bank, fixedRandom, seen)
+  expect(restarted.rounds.slice(0, 4).map(round => questionId(round.question)))
+    .toEqual(orderedIds.slice(0, 4))
+  const allSeen = bank.map(question => questionId(question.question))
+  expect(seenForNewGame(bank, allSeen)).toEqual([])
+  expect(newGame(bank, fixedRandom, allSeen).rounds).toHaveLength(bank.length)
+  expect(seenForNewGame(bank, [secondId, 'deadbeef'])).toEqual([secondId])
+  expect(markSeen(bank, ['deadbeef'], bank[0]!.question)).toEqual([firstId])
+  expect(parseSeen(['A1B2C3D4', '0123abcd'])).toEqual(['a1b2c3d4', '0123abcd'])
+  expect(parseSeen(['0123abcd', 'invalid'])).toEqual([])
+  expect(parseSeen(new Array<unknown>(1))).toEqual([])
+  expect(parseSeen({ seen: [] })).toEqual([])
 })
 
 test('scores a streak, ends on a wrong answer, clears the bank and ignores other phases', () => {
@@ -152,6 +199,169 @@ test('keeps the newest ten history entries and treats invalid history as empty',
   expect(parseHistory(undefined)).toEqual(emptyHistory())
   expect(parseHistory({ best: 2, games: [{ streak: 3, at: 10 }] })).toEqual(emptyHistory())
   expect(parseHistory({ best: 0, games: [{ streak: -1, at: 10 }] })).toEqual(emptyHistory())
+})
+
+test('saves a revealed ID so a fresh session starts with an unseen question', async ($, on) => {
+  const bank = sampleBank(4)
+  const initiallySeen = [questionId(bank[1]!.question), questionId(bank[2]!.question)]
+  mock.store(on, { seen: initiallySeen })
+  mock.clock(on, { now: 12_000 })
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('command.register', (_, e) => ({ value: { command: e.name } }))
+  on('ui.render', ($, e) => {
+    const { Text } = $.ui.resolve(e)
+    return Text({ children: 'Engine output' })
+  })
+  on('fs.read', () => ({ value: bankSourceFor(bank) }))
+
+  const mount = () => $.ui.mount({
+    plugin: 'trivia',
+    surface: 'terminal',
+    component: 'AbovePrompt',
+    props: {
+      hasSurvey: false,
+      isWorking: false,
+      maxRows: 20,
+      bodyColumns: 60,
+      scroll: { offset: 0, bodyRows: 12 },
+      view: {},
+    },
+  })
+
+  {
+    await $.session.start({
+      cwd: '/work/trivia-seen-save',
+      surface: 'terminal',
+      isInteractive: true,
+    })
+    await $.command.run({
+      command: 'trivia',
+      args: 'on',
+      origin: { kind: 'composer' },
+      presentation: { isFullscreen: false, columns: 60 },
+    })
+
+    const firstUi = await mount()
+    let previousQuestionId = ''
+    try {
+      const geometry = layout(60)
+      const start = geometry.startButton!
+      await firstUi.pointer({
+        type: 'down',
+        x: start.x + Math.floor(start.width / 2),
+        y: start.y + 1,
+        button: 'left',
+        in: 'stage',
+      })
+      await firstUi.advance(1_600)
+      const round = triviaProps(await firstUi.find({ key: 'stage' })).game!.round!
+      previousQuestionId = questionId(round.question)
+      expect(initiallySeen.includes(previousQuestionId)).toBe(false)
+      const wrongChoice = round.correctIndex === 0 ? 1 : 0
+      const box = geometry.answerBoxes[wrongChoice]!
+      await firstUi.pointer({
+        type: 'down',
+        x: box.x + 2,
+        y: box.y + 1,
+        button: 'left',
+        in: 'stage',
+      })
+      await firstUi.advance(2_000)
+      expect(triviaProps(await firstUi.find({ key: 'stage' })).game?.phase).toBe('wrong')
+    } finally {
+      await firstUi.unmount()
+    }
+
+    await $.session.start({
+      cwd: '/work/trivia-seen-reloaded',
+      surface: 'terminal',
+      isInteractive: true,
+    })
+    await $.command.run({
+      command: 'trivia',
+      args: 'on',
+      origin: { kind: 'composer' },
+      presentation: { isFullscreen: false, columns: 60 },
+    })
+
+    const nextUi = await mount()
+    try {
+      const persistedSeen = [...initiallySeen, previousQuestionId]
+      const expectedUnseenId = bank
+        .map(question => questionId(question.question))
+        .find(id => !persistedSeen.includes(id))
+      expect(expectedUnseenId).toBeDefined()
+      let current = triviaProps(await nextUi.find({ key: 'stage' })).game!
+      if (current.phase === 'wrong' || current.phase === 'cleared') {
+        await nextUi.pointer({ type: 'down', x: 0, y: 0, button: 'left', in: 'stage' })
+        const button = layout(60).outro.newButton
+        await nextUi.pointer({
+          type: 'down',
+          x: button.x + Math.floor(button.width / 2),
+          y: button.y + 1,
+          button: 'left',
+          in: 'stage',
+        })
+        current = triviaProps(await nextUi.find({ key: 'stage' })).game!
+      } else if (current.phase === 'idle') {
+        const start = layout(60).startButton!
+        await nextUi.pointer({
+          type: 'down',
+          x: start.x + Math.floor(start.width / 2),
+          y: start.y + 1,
+          button: 'left',
+          in: 'stage',
+        })
+        current = triviaProps(await nextUi.find({ key: 'stage' })).game!
+      }
+      expect(current.phase).toBe('asking')
+      expect(current.currentIndex).toBe(0)
+      expect(questionId(current.round!.question)).toBe(expectedUnseenId)
+    } finally {
+      await nextUi.unmount()
+    }
+  }
+})
+
+test('loads seen IDs before the mounted band chooses its first question', async ($, on) => {
+  const bank = sampleBank(5)
+  const seenId = questionId(bank[0]!.question)
+  mock.store(on, { seen: [seenId, 'ffffffff'] })
+  mock.clock(on, { now: 13_000 })
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('command.register', (_, e) => ({ value: { command: e.name } }))
+  on('ui.render', ($, e) => {
+    const { Text } = $.ui.resolve(e)
+    return Text({ children: 'Engine output' })
+  })
+  on('fs.read', () => ({ value: bankSourceFor(bank) }))
+
+  await $.session.start({ cwd: '/work/trivia-seen-load', surface: 'terminal', isInteractive: true })
+  await $.command.run({
+    command: 'trivia',
+    args: 'on',
+    origin: { kind: 'composer' },
+    presentation: { isFullscreen: false, columns: 60 },
+  })
+  const ui = await $.ui.mount({
+    plugin: 'trivia',
+    surface: 'terminal',
+    component: 'AbovePrompt',
+    props: {
+      hasSurvey: false,
+      isWorking: false,
+      maxRows: 20,
+      bodyColumns: 60,
+      scroll: { offset: 0, bodyRows: 12 },
+      view: {},
+    },
+  })
+
+  const game = triviaProps(await ui.find({ key: 'stage' })).game!
+  expect(game.phase).toBe('idle')
+  expect(game.roundCount).toBe(bank.length)
+  expect(questionId(game.round!.question)).not.toBe(seenId)
+  await ui.unmount()
 })
 
 test('loads, saves and displays streak history in the mounted band', async ($, on) => {
