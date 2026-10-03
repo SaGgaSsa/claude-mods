@@ -446,11 +446,12 @@ const drawOutroHistory = (
   const plotWidth = Math.max(0, recent.length * 3 - 1)
   const plotX = chart.x + Math.floor((chart.width - plotWidth) / 2)
   const bestLabel = `Best ${props.best}`
-  const legendX = chart.x + Array.from(bestLabel).length + 2
-  const legendWidth = Math.max(0, chart.x + chart.width - legendX)
+  const legend = ' · Last games'
+  const headerWidth = Array.from(bestLabel + legend).length
+  const headerX = chart.x + Math.floor((chart.width - headerWidth) / 2)
 
-  writeText(canvas, bestLabel, chart.x, geometry.outro.historyY, { color: AMBER, bold: true })
-  writeCentered(canvas, 'Last games', legendX, geometry.outro.historyY, legendWidth, {
+  writeText(canvas, bestLabel, headerX, geometry.outro.historyY, { color: AMBER, bold: true })
+  writeText(canvas, legend, headerX + Array.from(bestLabel).length, geometry.outro.historyY, {
     color: SOFT_WHITE,
   })
 
@@ -480,8 +481,9 @@ const drawOutro = (
   if (!game) return
   const phase = game.phase
   const round = currentRound(game)
+  // Same margin on both sides, so the text centers on the New game button and clears Clawd.
   const contentX = geometry.questionX
-  const contentWidth = geometry.questionCenterWidth
+  const contentWidth = Math.max(1, geometry.width - 2 * contentX)
   const title = phase === 'cleared' ? 'ALL CLEARED!' : 'GAME OVER'
   writeCentered(canvas, title, contentX, geometry.outro.titleY, contentWidth, {
     color: AMBER,
