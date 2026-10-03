@@ -38,6 +38,12 @@ const sourceOf = (element: FoundElement | undefined): string => {
   return source
 }
 
+const cardWidthOf = (element: FoundElement | undefined): number => {
+  const width = element?.props.width
+  if (typeof width !== 'number') throw new Error('Expected a card width in columns')
+  return width
+}
+
 test('mounts a desktop view and plays a full streak round with native buttons', async ($, on) => {
   mock.store(on, { history: { best: 0, games: [] }, seen: [] })
   mock.clock(on, { now: 5_000 })
@@ -88,19 +94,27 @@ test('mounts a desktop view and plays a full streak round with native buttons', 
     props: bandProps,
   })
   try {
+    await ui.resize({ columns: 60, rows: 11, in: 'stage' })
     const client = await ui.find({ key: 'stage' })
     const idleSvg = await ui.find({ type: 'Svg' })
     expect(client?.props.module).toMatch(/stage-desktop\.tsx$/)
+    expect(client?.props.width).toBe('100%')
     expect(client?.props.props).toMatchObject({ maxRows: 11 })
     expect(sourceOf(idleSvg).length < 131_072).toBe(true)
     expect(sourceOf(idleSvg).includes('background-color:transparent')).toBe(true)
     expect(idleSvg?.props.alt).toBe('Clawd waves hello before the trivia game starts.')
+    expect((await ui.find({ key: 'clawd-overlay' }))?.props.position).toBe('absolute')
     expect(sourceOf(idleSvg).includes('#d97757')).toBe(true)
+    expect(idleSvg?.props.width).toBe(48)
+    expect(idleSvg?.props.height).toBe(27)
     expect(idleSvg?.props.isInteractive).toBeUndefined()
 
     await ui.press({ key: 'start' })
     expect(triviaProps(await ui.find({ key: 'stage' })).game?.phase).toBe('asking')
     expect(await ui.find({ type: 'Text', text: /^$/, in: 'stage' })).toBeUndefined()
+    expect((await ui.find({ key: 'clawd-space', in: 'stage' }))?.props.width).toBe(8)
+    expect((await ui.find({ key: 'question-area', in: 'stage' }))?.props.height).toBe(2)
+    expect((await ui.find({ key: 'stage-top-content', in: 'stage' }))?.props.flexGrow).toBe(1)
     const askingSvg = await ui.find({ type: 'Svg' })
     expect(sourceOf(askingSvg)).not.toBe(sourceOf(idleSvg))
     expect(sourceOf(askingSvg).length < 131_072).toBe(true)
@@ -126,15 +140,20 @@ test('mounts a desktop view and plays a full streak round with native buttons', 
       in: 'stage',
     })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /^Choose an answer$/, in: 'stage' })).toBeUndefined()
+    const columns = 60
     for (const choice of [0, 1, 2, 3]) {
       const card = await ui.find({ key: `answer-card-${choice}`, in: 'stage' })
       const button = await ui.find({ key: `answer-${choice}`, in: 'stage' })
-      expect(card?.props.width).toBe('50%')
+      expect(cardWidthOf(card) > 0).toBe(true)
       expect(card?.props.backgroundColor).toBe('#302a20')
       expect(card?.props.borderStyle).toBe('round')
+      expect(card?.props.height).toBe(2)
       expect(button?.props.variant).toBe('secondary')
       expect(button?.props.dimColor).toBe(false)
     }
+    const leftWidth = cardWidthOf(await ui.find({ key: 'answer-card-0', in: 'stage' }))
+    const rightWidth = cardWidthOf(await ui.find({ key: 'answer-card-1', in: 'stage' }))
+    expect(leftWidth + rightWidth + 1 <= columns).toBe(true)
 
     const firstRound = triviaProps(await ui.find({ key: 'stage' })).game!.round!
     const firstRoundId = triviaProps(await ui.find({ key: 'stage' })).game!.roundId
@@ -254,6 +273,73 @@ test('cleared Desktop games show the outro after the matching delay', async ($, 
   }
 })
 
+test('Desktop top text reserves Clawd space and cards fit the Client columns', async ($, on) => {
+  const longBank: TriviaQuestion[] = [{
+    difficulty: 'easy',
+    category: 'Long questions',
+    question: 'Which ancient civilization built extensive road networks across the Andes mountains ' +
+      'and connected distant communities through high mountain passes?',
+    correctAnswer: 'The Inca Empire',
+    incorrectAnswers: ['The Roman Empire', 'The Khmer Empire', 'The Ottoman Empire'],
+  }]
+  mock.store(on, { history: { best: 0, games: [] }, seen: [] })
+  mock.clock(on, { now: 6_500 })
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('command.register', (_, e) => ({ value: { command: e.name } }))
+  on('ui.render', ($, e) => {
+    const { Text } = $.ui.resolve(e)
+    return Text({ children: 'Engine output' })
+  })
+  on('fs.read', () => ({ value: bankSourceFor(longBank) }))
+
+  await $.session.start({
+    cwd: '/work/trivia-desktop-layout',
+    surface: 'desktop',
+    isInteractive: true,
+  })
+  await $.command.run({
+    command: 'trivia',
+    args: 'on',
+    origin: { kind: 'composer' },
+    presentation: { isFullscreen: false, columns: 50 },
+  })
+
+  const columns = 50
+  const ui = await $.ui.mount({
+    plugin: 'trivia',
+    surface: 'desktop',
+    component: 'AbovePrompt',
+    props: {
+      hasSurvey: false,
+      isWorking: false,
+      maxRows: 18,
+      bodyColumns: columns,
+      scroll: { offset: 0, bodyRows: 12 },
+      view: {},
+    },
+  })
+
+  try {
+    await ui.resize({ columns, rows: 11, in: 'stage' })
+    await ui.press({ key: 'start' })
+    await ui.advance(6_000)
+
+    expect((await ui.find({ key: 'stage' }))?.props.width).toBe('100%')
+    expect((await ui.find({ key: 'clawd-space', in: 'stage' }))?.props.width).toBe(8)
+    expect((await ui.find({ key: 'stage-top-content', in: 'stage' }))?.props.flexGrow).toBe(1)
+    expect((await ui.find({ key: 'question-area', in: 'stage' }))?.props.height).toBe(2)
+    expect(await ui.find({ type: 'Text', text: /Which ancient civilization/, in: 'stage' }))
+      .toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /…$/, in: 'stage' })).toBeDefined()
+
+    const firstWidth = cardWidthOf(await ui.find({ key: 'answer-card-0', in: 'stage' }))
+    const secondWidth = cardWidthOf(await ui.find({ key: 'answer-card-1', in: 'stage' }))
+    expect(firstWidth + 1 + secondWidth <= columns).toBe(true)
+  } finally {
+    await ui.unmount()
+  }
+})
+
 test('Desktop card corners pick answers while the gap and locked state do nothing', async ($, on) => {
   mock.store(on, { history: { best: 0, games: [] }, seen: [] })
   mock.clock(on, { now: 7_000 })
@@ -297,12 +383,12 @@ test('Desktop card corners pick answers while the gap and locked state do nothin
     await ui.advance(3_000)
     expect(triviaProps(await ui.find({ key: 'stage' })).game?.phase).toBe('asking')
 
-    await ui.pointer({ type: 'down', x: 25, y: 3, button: 'left', in: 'stage' })
+    await ui.pointer({ type: 'down', x: 24, y: 3, button: 'left', in: 'stage' })
     const afterGap = triviaProps(await ui.find({ key: 'stage' })).game!
     expect(afterGap.phase).toBe('asking')
-    await ui.pointer({ type: 'down', x: 0, y: 5, button: 'left', in: 'stage' })
-    expect(triviaProps(await ui.find({ key: 'stage' })).game!.phase).toBe('asking')
     expect(afterGap.selectedAnswer).toBeNull()
+    await ui.pointer({ type: 'down', x: 0, y: 5, button: 'left', in: 'stage' })
+    expect(triviaProps(await ui.find({ key: 'stage' })).game?.phase).toBe('asking')
 
     const corners = [
       { choice: 0, x: 0, y: 3 },
@@ -326,7 +412,7 @@ test('Desktop card corners pick answers while the gap and locked state do nothin
       await ui.pointer({
         type: 'down',
         x: corner.x === 0 ? 49 : 0,
-        y: corner.choice < 2 ? 8 : 3,
+        y: corner.choice < 2 ? 3 : 6,
         button: 'left',
         in: 'stage',
       })

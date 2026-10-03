@@ -28,6 +28,8 @@ import {
 } from './trivia'
 
 const STAGE = 'stage'
+const DESKTOP_CLAWD_COLUMNS = 8
+const DESKTOP_CLAWD_ROWS = 3
 const isShown = atom({ plugin: 'trivia', key: 'isShown' } as const, false)
 const gameState = atom({ plugin: 'trivia', key: 'game' } as const, null)
 
@@ -232,18 +234,18 @@ export const register: Register = on => {
       const sprite = clawdSvgForPhase(current?.phase ?? 'idle')
       const desktopRows = Math.max(1, Math.min(e.props.maxRows, e.props.scroll.bodyRows) - 1)
       return (
-        <Box width="100%" position="relative" flexDirection="row" alignItems="stretch"
-          flexShrink={0}>
-          <Box width={10} flexShrink={0} />
+        <Box width="100%" position="relative" flexDirection="column" flexShrink={0}>
           <Client
             key={STAGE}
             module="./stage-desktop.tsx"
             props={stageProps(current, geometry.width, desktopRows)}
-            flexGrow={1}
+            width="100%"
           />
-          <Box position="absolute" left={0} top={0} bottom={0} width={10}
+          <Box key="clawd-overlay" position="absolute" left={0} top={0}
+            width={DESKTOP_CLAWD_COLUMNS}
+            height={DESKTOP_CLAWD_ROWS}
             flexDirection="column" justifyContent="center" alignItems="center">
-            <Svg source={sprite.source} alt={sprite.alt} width={64} height={36} />
+            <Svg source={sprite.source} alt={sprite.alt} width={48} height={27} />
           </Box>
         </Box>
       )

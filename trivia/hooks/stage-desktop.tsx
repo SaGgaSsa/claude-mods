@@ -16,13 +16,13 @@ const RED = '#a93636'
 const CARD = '#302a20'
 const CARD_HOVER = '#45391f'
 
+const CLAWD_SPACE_COLUMNS = 8
 const HEADER_ROWS = 1
 const QUESTION_ROWS = 2
 const ANSWER_CARD_ROWS = 2
-const ANSWER_ROW_MARGIN = 1
+const ANSWER_ROW_MARGIN = 0.5
 const ANSWER_ROW_COUNT = 2
 const ANSWER_GAP = 1
-const ANSWER_CARD_WIDTH = '50%' as const
 
 type Choice = 0 | 1 | 2 | 3
 
@@ -33,8 +33,9 @@ type AnswerGeometry = {
   answerRows: number
   cardRows: number
   rowMargin: number
-  cardWidth: typeof ANSWER_CARD_WIDTH
   gap: number
+  leftWidth: number
+  rightWidth: number
   leftEnd: number
   rightStart: number
 }
@@ -76,8 +77,13 @@ const questionKeyOf = (props: TriviaProps): string => props.game?.roundId ?? ''
 const questionLengthOf = (props: TriviaProps): number =>
   Array.from(props.game?.round?.question ?? '').length
 
+const clawdSpaceFor = (columns: number): number =>
+  Math.min(CLAWD_SPACE_COLUMNS, Math.max(0, columns - 1))
+
 const answerGeometryFor = (columns: number): AnswerGeometry => {
-  const leftWidth = Math.ceil((columns - ANSWER_GAP) / 2)
+  const usableColumns = Math.max(0, columns - ANSWER_GAP)
+  const leftWidth = Math.floor(usableColumns / 2)
+  const rightWidth = usableColumns - leftWidth
   return {
     headerRows: HEADER_ROWS,
     questionRows: QUESTION_ROWS,
@@ -85,11 +91,60 @@ const answerGeometryFor = (columns: number): AnswerGeometry => {
     answerRows: ANSWER_ROW_COUNT,
     cardRows: ANSWER_CARD_ROWS,
     rowMargin: ANSWER_ROW_MARGIN,
-    cardWidth: ANSWER_CARD_WIDTH,
     gap: ANSWER_GAP,
+    leftWidth,
+    rightWidth,
     leftEnd: leftWidth,
     rightStart: leftWidth + ANSWER_GAP,
   }
+}
+
+const questionLinesFor = (question: string, columns: number): string[] => {
+  let remaining = Array.from(question.trim().replace(/\s+/g, ' '))
+  const lines: string[] = []
+
+  while (remaining.length > 0 && lines.length < QUESTION_ROWS) {
+    if (remaining.length <= columns) {
+      lines.push(remaining.join(''))
+      remaining = []
+      break
+    }
+
+    const space = remaining.slice(0, columns).lastIndexOf(' ')
+    const length = space > 0 ? space : columns
+    lines.push(remaining.slice(0, length).join(''))
+    remaining = Array.from(remaining.slice(length).join('').trimStart())
+  }
+
+  if (remaining.length > 0 && lines.length > 0) {
+    const last = Array.from(lines[lines.length - 1] ?? '')
+    lines[lines.length - 1] = `${last.slice(0, Math.max(0, columns - 1)).join('')}…`
+  }
+
+  return lines
+}
+
+const topCluster = (
+  elements: ClientElements,
+  columns: number,
+  content: RenderElement,
+): RenderElement => {
+  const { Box } = elements
+  return Box({
+    key: 'top-cluster',
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    width: '100%',
+    children: [
+      Box({
+        key: 'clawd-space',
+        width: clawdSpaceFor(columns),
+        height: HEADER_ROWS + QUESTION_ROWS,
+        flexShrink: 0,
+      }),
+      content,
+    ],
+  })
 }
 
 const answerAt = (x: number, y: number, columns: number): Choice | null => {
@@ -201,18 +256,26 @@ const panelHistory = (
   elements: ClientElements,
   props: TriviaProps,
   streaks: number[],
+  columns: number,
 ): RenderElement => {
-  const recent = streaks.slice(0, 10).reverse()
+  const maxGames = Math.max(1, Math.min(10, Math.floor((columns + 1) / 3)))
+  const recent = streaks.slice(0, maxGames).reverse()
   const maxStreak = Math.max(0, ...recent)
   const maxBarHeight = Math.max(1, Math.min(2, Math.floor((props.maxRows ?? 10) - 6)))
   const { Box, Text } = elements
 
   if (recent.length === 0) {
     return Box({
+      width: '100%',
       flexDirection: 'column',
       alignItems: 'center',
       children: [
-        Text({ color: AMBER, bold: true, children: `Best ${props.best} · Last games` }),
+        Text({
+          color: AMBER,
+          bold: true,
+          wrap: 'truncate',
+          children: `Best ${props.best} · Last games`,
+        }),
         Text({ color: '#8f8a80', children: 'No games yet' }),
       ],
     })
@@ -240,11 +303,24 @@ const panelHistory = (
   })
 
   return Box({
+    width: '100%',
     flexDirection: 'column',
     alignItems: 'center',
     children: [
-      Text({ color: AMBER, bold: true, children: `Best ${props.best} · Last games` }),
-      Box({ flexDirection: 'row', alignItems: 'flex-end', gap: 1, children: bars }),
+      Text({
+        color: AMBER,
+        bold: true,
+        wrap: 'truncate',
+        children: `Best ${props.best} · Last games`,
+      }),
+      Box({
+        width: '100%',
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'flex-end',
+        gap: 1,
+        children: bars,
+      }),
     ],
   })
 }
@@ -254,22 +330,38 @@ const renderPanel = (
   props: TriviaProps,
   model: PanelModel,
   onAction: () => void,
+  columns: number,
 ): RenderElement => {
   const { Box, Button, Text } = elements
   const children: RenderElement[] = [
-    Box({
+    topCluster(elements, columns, Box({
+      key: 'panel-top-content',
       flexDirection: 'column',
-      alignItems: 'center',
+      flexGrow: 1,
+      minWidth: 0,
       children: [
-        Text({ color: AMBER, bold: true, wrap: 'truncate', children: model.title }),
-        ...model.lines.map(line => Text({
-          color: line.color,
-          wrap: 'truncate',
-          ...(line.bold ? { bold: true } : {}),
-          children: line.text,
+        Box({
+          height: 1,
+          overflow: 'hidden',
+          children: [Text({
+            color: AMBER,
+            bold: true,
+            wrap: 'truncate',
+            children: model.title,
+          })],
+        }),
+        ...model.lines.map(line => Box({
+          height: 1,
+          overflow: 'hidden',
+          children: [Text({
+            color: line.color,
+            wrap: 'truncate',
+            ...(line.bold ? { bold: true } : {}),
+            children: line.text,
+          })],
         })),
       ],
-    }),
+    })),
   ]
 
   if (model.action && model.actionLabel) {
@@ -286,8 +378,8 @@ const renderPanel = (
     }))
   }
 
-  children.push(panelHistory(elements, props, model.history))
-  return Box({ flexDirection: 'column', alignItems: 'stretch', children })
+  children.push(panelHistory(elements, props, model.history, columns))
+  return Box({ width: '100%', flexDirection: 'column', alignItems: 'stretch', children })
 }
 
 const introPanel = (props: TriviaProps): PanelModel => {
@@ -376,7 +468,7 @@ const answerRows = (
       if (choiceValue >= 4) continue
       if (choiceValue >= state.answersShown) {
         cells.push(Box({
-          width: geometry.cardWidth,
+          width: choiceValue === firstChoice ? geometry.leftWidth : geometry.rightWidth,
           height: geometry.cardRows,
           minWidth: 0,
         }))
@@ -388,8 +480,7 @@ const answerRows = (
       const stateColor = cardColorFor(props, choice, state)
       cells.push(Box({
         key: `answer-card-${choice}`,
-        // A fixed half, not flexGrow: the cards would size to their labels.
-        width: geometry.cardWidth,
+        width: choice === firstChoice ? geometry.leftWidth : geometry.rightWidth,
         height: geometry.cardRows,
         minWidth: 0,
         borderStyle: 'round',
@@ -436,7 +527,7 @@ const renderStage = (
   if (!game || phase === 'idle') {
     return renderPanel(elements, props, introPanel(props), () => {
       if (props.game?.round) post({ type: 'new' })
-    })
+    }, columns)
   }
 
   if ((phase === 'wrong' || phase === 'cleared') && state.view === 'outro') {
@@ -445,7 +536,7 @@ const renderStage = (
       return renderPanel(elements, props, panel, () => {
         const current = phaseOf(props)
         if (current === 'wrong' || current === 'cleared') post({ type: 'new' })
-      })
+      }, columns)
     }
   }
 
@@ -476,29 +567,44 @@ const renderStage = (
     ? `${round.category} · ${round.difficulty} · Streak ${game.streak} · ${status}`
     : `Streak ${game.streak} · ${status}`
   const geometry = answerGeometryFor(columns)
+  const questionLines = questionLinesFor(
+    visibleQuestion,
+    Math.max(1, columns - clawdSpaceFor(columns)),
+  )
   const children: RenderElement[] = [
-    Box({
+    topCluster(elements, columns, Box({
+      key: 'stage-top-content',
       flexDirection: 'column',
-      height: geometry.headerRows,
-      overflow: 'hidden',
-      children: [Text({
-        color: headerColor,
-        bold: true,
-        wrap: 'truncate',
-        children: heading,
-      })],
-    }),
-    Box({
-      flexDirection: 'column',
-      height: geometry.questionRows,
-      overflow: 'hidden',
-      children: visibleQuestion.length > 0 ? [Text({
-        color: SOFT_WHITE,
-        bold: true,
-        wrap: 'wrap',
-        children: visibleQuestion,
-      })] : [],
-    }),
+      flexGrow: 1,
+      minWidth: 0,
+      children: [
+        Box({
+          key: 'stage-header',
+          flexDirection: 'column',
+          height: geometry.headerRows,
+          overflow: 'hidden',
+          children: [Text({
+            color: headerColor,
+            bold: true,
+            wrap: 'truncate',
+            children: heading,
+          })],
+        }),
+        Box({
+          key: 'question-area',
+          flexDirection: 'column',
+          height: geometry.questionRows,
+          overflow: 'hidden',
+          children: questionLines.map((line, index) => Text({
+            key: `question-line-${index}`,
+            color: SOFT_WHITE,
+            bold: true,
+            wrap: 'truncate',
+            children: line,
+          })),
+        }),
+      ],
+    })),
   ]
 
   children.push(...answerRows(elements, props, state, columns, choice => {
@@ -542,7 +648,7 @@ const renderStage = (
     children.push(actionRow(null, continueButton))
   }
 
-  return Box({ flexDirection: 'column', gap: 0, flexGrow: 1, children })
+  return Box({ width: '100%', flexDirection: 'column', gap: 0, flexGrow: 1, children })
 }
 
 const DesktopStage: ClientModule<TriviaProps, DesktopStageState> = (props, surface) => {
