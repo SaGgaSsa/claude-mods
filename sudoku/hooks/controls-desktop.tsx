@@ -2,7 +2,7 @@ import type { ClientModule } from 'claude-code'
 
 import type { ControlsMessage, ControlsProps } from '../types'
 import { desktopBoardDimensions } from './desktop-shared'
-import { CLASH, PAPER, PLAYER, WOOD } from './palette'
+import { CLASH_BACKGROUND, PAPER, PAPER_ALT, WOOD } from './palette'
 
 type ControlsState = { selected: string | null }
 type ControlsAction =
@@ -83,11 +83,11 @@ const Controls: ClientModule<ControlsProps, ControlsState> = (props, surface) =>
       rowGap={1}
       padding={1}
       width="100%"
-      backgroundColor={PAPER}
+      backgroundColor={WOOD}
     >
-      <Text bold color={props.isSolved ? '#245a2c' : WOOD}>{status}</Text>
-      {props.clashes > 0 && <Text color={CLASH}>{`${props.clashes} in conflict`}</Text>}
-      {!props.keyboardActive && <Text color={PLAYER}>Click the board to use the keyboard</Text>}
+      <Text bold color={props.isSolved ? '#8fd18f' : PAPER}>{status}</Text>
+      {props.clashes > 0 && <Text color={CLASH_BACKGROUND}>{`${props.clashes} in conflict`}</Text>}
+      {!props.keyboardActive && <Text color={PAPER_ALT}>Click the board to use the keyboard</Text>}
       <Box flexDirection="column" alignItems="center" rowGap={1}>
         {DIGITS.map((row, rowIndex) => (
           <Box key={`digits:${rowIndex}`} flexDirection="row" justifyContent="center" columnGap={1}>

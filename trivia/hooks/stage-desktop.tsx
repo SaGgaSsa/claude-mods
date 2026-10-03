@@ -320,7 +320,7 @@ const answerRows = (
     for (const choiceValue of [firstChoice, firstChoice + 1] as const) {
       if (choiceValue >= 4) continue
       if (choiceValue >= state.answersShown) {
-        cells.push(Box({ flexGrow: 1, minWidth: 0 }))
+        cells.push(Box({ width: '50%', minWidth: 0 }))
         continue
       }
 
@@ -329,7 +329,8 @@ const answerRows = (
       const stateColor = cardColorFor(props, choice, state)
       cells.push(Box({
         key: `answer-card-${choice}`,
-        flexGrow: 1,
+        // A fixed half, not flexGrow: the cards would size to their labels.
+        width: '50%',
         minWidth: 0,
         paddingX: 1,
         borderStyle: 'round',

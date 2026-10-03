@@ -129,7 +129,7 @@ test('mounts a desktop view and plays a full streak round with native buttons', 
     for (const choice of [0, 1, 2, 3]) {
       const card = await ui.find({ key: `answer-card-${choice}`, in: 'stage' })
       const button = await ui.find({ key: `answer-${choice}`, in: 'stage' })
-      expect(card?.props.flexGrow).toBe(1)
+      expect(card?.props.width).toBe('50%')
       expect(card?.props.backgroundColor).toBe('#302a20')
       expect(card?.props.borderStyle).toBe('round')
       expect(button?.props.variant).toBe('secondary')

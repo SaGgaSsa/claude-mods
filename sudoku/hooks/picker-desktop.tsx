@@ -49,8 +49,9 @@ const Picker: ClientModule<PickerProps, PickerState> = (props, surface) => {
   })
 
   return (
-    <Box flexDirection="column" rowGap={1} padding={1} backgroundColor={PAPER}>
-      <Text bold color={WOOD}>Choose a difficulty</Text>
+    // Desktop draws native buttons with light labels, so the card is wood, not paper.
+    <Box flexDirection="column" alignItems="center" rowGap={1} padding={1} minWidth={30} backgroundColor={WOOD}>
+      <Text bold color={PAPER}>Choose a difficulty</Text>
       {DIFFICULTIES.map((option, index) => {
         const isSelected = selected === index
         return (
