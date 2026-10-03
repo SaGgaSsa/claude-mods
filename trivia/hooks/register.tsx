@@ -9,9 +9,10 @@ import type {
   TriviaProps,
   StageGame,
 } from '../types'
+import type { GameSelection } from './trivia'
 import {
   addGame,
-  currentRound,
+  beginGame,
   emptyHistory,
   isTriviaMessage,
   markSeen,
@@ -22,8 +23,6 @@ import {
   parseSeen,
   pick,
   reveal,
-  seenForNewGame,
-  startOrRestart,
   layout,
 } from './trivia'
 
@@ -38,14 +37,23 @@ let seenQuestions: string[] = []
 let latestResultIsBest = false
 let terminalResultRecorded = false
 
-export const stageGame = (game: TriviaGame | null): StageGame | null => {
+export const stageGame = (
+  game: TriviaGame | null,
+  roundCount: number,
+): StageGame | null => {
   if (!game) return null
-  const { rounds, ...rest } = game
-  return { ...rest, round: rounds[game.currentIndex] ?? null, roundCount: rounds.length }
+  return {
+    round: game.round,
+    roundId: game.roundId,
+    streak: game.streak,
+    phase: game.phase,
+    selectedAnswer: game.selectedAnswer,
+    roundCount,
+  }
 }
 
 const stageProps = (game: TriviaGame | null, width: number): TriviaProps => ({
-  game: stageGame(game),
+  game: stageGame(game, questionBank.length),
   error: bankError,
   width,
   best: history.best,
@@ -58,31 +66,48 @@ const stageProps = (game: TriviaGame | null, width: number): TriviaProps => ({
 const sameSeen = (left: readonly string[], right: readonly string[]): boolean =>
   left.length === right.length && left.every((id, index) => id === right[index])
 
-const prepareSeenForGame = (): boolean => {
-  const prepared = seenForNewGame(questionBank, seenQuestions)
-  if (sameSeen(prepared, seenQuestions)) return false
-  seenQuestions = prepared
-  return true
-}
-
 const applyMessage = (
   game: TriviaGame | null,
   message: TriviaMessage,
   seen: readonly string[],
-): TriviaGame | null => {
-  if (!game) return message.type === 'new'
-    ? startOrRestart(null, questionBank, Math.random, seen)
-    : null
+): { game: TriviaGame | null; seen: string[] } => {
+  if (!game) {
+    if (message.type !== 'new') return { game: null, seen: [...seen] }
+    const fresh = newGame(questionBank, Math.random, seen)
+    return {
+      game: beginGame(fresh.game),
+      seen: fresh.seen,
+    }
+  }
 
   switch (message.type) {
     case 'pick':
-      return pick(game, message.choice)
+      return { game: pick(game, message.choice), seen: [...seen] }
     case 'reveal':
-      return reveal(game)
-    case 'next':
-      return next(game)
+      return { game: reveal(game, questionBank), seen: [...seen] }
+    case 'next': {
+      const selected = next(game, questionBank, Math.random, seen)
+      return { game: selected.game, seen: selected.seen }
+    }
     case 'new':
-      return startOrRestart(game, questionBank, Math.random, seen)
+      if (game.phase === 'idle') {
+        return {
+          game: beginGame(game),
+          seen: [...seen],
+        }
+      }
+      if (game.phase !== 'wrong' && game.phase !== 'cleared') {
+        return { game, seen: [...seen] }
+      }
+      return startFreshGame(seen)
+  }
+}
+
+const startFreshGame = (seen: readonly string[]): { game: TriviaGame; seen: string[] } => {
+  const fresh: GameSelection = newGame(questionBank, Math.random, seen)
+  return {
+    game: beginGame(fresh.game),
+    seen: fresh.seen,
   }
 }
 
@@ -133,10 +158,14 @@ export const register: Register = on => {
 
     await update($, isShown, () => shown)
     if (shown && !(await read($, gameState))) {
-      if (prepareSeenForGame()) await $.store.set('seen', seenQuestions)
       latestResultIsBest = false
       terminalResultRecorded = false
-      await update($, gameState, () => newGame(questionBank, Math.random, seenQuestions))
+      const fresh = newGame(questionBank, Math.random, seenQuestions)
+      if (!sameSeen(fresh.seen, seenQuestions)) {
+        seenQuestions = fresh.seen
+        await $.store.set('seen', seenQuestions)
+      }
+      await update($, gameState, () => fresh.game)
     }
 
     return { text: shown ? 'Trivia band shown.' : 'Trivia band hidden.' }
@@ -145,20 +174,14 @@ export const register: Register = on => {
   on('ui.message', { element: STAGE }, async ($, e) => {
     if (!isTriviaMessage(e.data)) return {}
     const current = await read($, gameState)
-    const canStartGame = e.data.type === 'new' && (
-      !current || current.phase === 'idle' || current.phase === 'wrong' ||
-      current.phase === 'cleared'
-    )
-    if (canStartGame && prepareSeenForGame()) await $.store.set('seen', seenQuestions)
-
-    const updated = applyMessage(current, e.data, seenQuestions)
-    if (updated === current) return {}
+    const result = applyMessage(current, e.data, seenQuestions)
+    const updated = result.game
+    if (updated === current && sameSeen(result.seen, seenQuestions)) return {}
 
     if (current?.phase === 'locked' && e.data.type === 'reveal' && updated) {
-      const answered = currentRound(current)
+      const answered = current.round
       if (answered) {
-        seenQuestions = markSeen(questionBank, seenQuestions, answered.question)
-        await $.store.set('seen', seenQuestions)
+        result.seen = markSeen(questionBank, result.seen, answered.question)
       }
     }
 
@@ -181,6 +204,10 @@ export const register: Register = on => {
       terminalResultRecorded = false
     }
 
+    if (!sameSeen(result.seen, seenQuestions)) {
+      seenQuestions = result.seen
+      await $.store.set('seen', seenQuestions)
+    }
     await update($, gameState, () => updated)
     return {}
   })

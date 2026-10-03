@@ -26,7 +26,7 @@ const RED = '#a93636'
 
 type StageState = {
   tick: number
-  questionKey: number
+  questionKey: string
   phaseKey: TriviaPhase
   view: TriviaView
   phaseStartedAt: number
@@ -47,7 +47,7 @@ type AnimationStep = {
 }
 
 const phaseOf = (props: TriviaProps): TriviaPhase => props.game?.phase ?? 'idle'
-const questionIndexOf = (props: TriviaProps): number => props.game?.currentIndex ?? -1
+const questionKeyOf = (props: TriviaProps): string => props.game?.roundId ?? ''
 const questionLengthOf = (props: TriviaProps): number => {
   const round = props.game?.round ?? null
   return round ? Array.from(round.question).length : 0
@@ -55,7 +55,7 @@ const questionLengthOf = (props: TriviaProps): number => {
 
 const initialState = (props: TriviaProps): StageState => ({
   tick: 0,
-  questionKey: questionIndexOf(props),
+  questionKey: questionKeyOf(props),
   phaseKey: phaseOf(props),
   view: 'reveal',
   phaseStartedAt: 0,
@@ -71,7 +71,7 @@ const initialState = (props: TriviaProps): StageState => ({
 })
 
 const syncState = (state: StageState, props: TriviaProps): StageState => {
-  const questionKey = questionIndexOf(props)
+  const questionKey = questionKeyOf(props)
   const phaseKey = phaseOf(props)
   const questionChanged = questionKey !== state.questionKey
   const startedAsking = phaseKey === 'asking' && state.phaseKey !== 'asking'
