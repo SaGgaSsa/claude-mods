@@ -455,6 +455,22 @@ test('loads seen IDs before the mounted band chooses its first question', async 
   expect(game.roundCount).toBe(bank.length)
   expect(questionId(game.round!.question)).not.toBe(seenId)
   await ui.unmount()
+
+  const desktopUi = await $.ui.mount({
+    plugin: 'trivia',
+    surface: 'desktop',
+    component: 'AbovePrompt',
+    props: {
+      hasSurvey: false,
+      isWorking: false,
+      maxRows: 20,
+      bodyColumns: 60,
+      scroll: { offset: 0, bodyRows: 12 },
+      view: {},
+    },
+  })
+  expect(triviaProps(await desktopUi.find({ key: 'stage' })).game!.phase).toBe('idle')
+  await desktopUi.unmount()
 })
 
 test('loads, saves and displays streak history in the mounted band', async ($, on) => {
