@@ -27,8 +27,10 @@ export type TriviaRound = {
 }
 
 export type TriviaGame = {
-  rounds: TriviaRound[]
-  currentIndex: number
+  round: TriviaRound | null
+  roundId: string | null
+  askedIds: string[]
+  recent: TriviaDifficulty[]
   streak: number
   phase: TriviaPhase
   selectedAnswer: 0 | 1 | 2 | 3 | null
@@ -39,10 +41,11 @@ export type TriviaHistory = {
   games: { streak: number; at: number }[]
 }
 
-// What the Client sees of a game: only the current round, so its props stay small
-// however large the question bank is.
-export type StageGame = Omit<TriviaGame, 'rounds'> & {
-  round: TriviaRound | null
+// The Client receives only the active round and the values needed to draw it.
+export type StageGame = Pick<
+  TriviaGame,
+  'round' | 'roundId' | 'streak' | 'phase' | 'selectedAnswer'
+> & {
   roundCount: number
 }
 

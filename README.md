@@ -88,8 +88,12 @@ A multiple-choice streak game in the band above the prompt, played only with cli
 /trivia            # show or hide the band (also /trivia on, /trivia off)
 ```
 
-- Questions come at random from the whole pool until the first wrong answer.
-  Each right answer adds one to the streak.
+- Questions come until the first wrong answer; each right answer adds one to the
+  streak. The difficulty climbs with the streak, with some randomness: mostly easy
+  at first (with the odd hard one), mostly hard past 20. No more than 3 hard or 4
+  easy questions come in a row, and the draw also leans away from a difficulty
+  whose questions are running out, so easy, medium and hard run out together.
+  The weights live in `TRIVIA_CONFIG` in `trivia/hooks/trivia.ts`.
 - No question comes back until you have seen every other one: answered
   questions are remembered across games and sessions, and the cycle starts over
   once the whole pool has been seen.

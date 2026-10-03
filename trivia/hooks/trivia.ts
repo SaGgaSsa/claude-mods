@@ -11,6 +11,44 @@ import type {
   TriviaRound,
 } from '../types'
 
+export const TRIVIA_CONFIG = {
+  difficultyWeights: [
+    { maxStreak: 0, easy: 90, medium: 9, hard: 1 },
+    { maxStreak: 2, easy: 84, medium: 14, hard: 2 },
+    { maxStreak: 5, easy: 64, medium: 29, hard: 7 },
+    { maxStreak: 9, easy: 46, medium: 38, hard: 16 },
+    { maxStreak: 14, easy: 31, medium: 42, hard: 27 },
+    { maxStreak: 19, easy: 19, medium: 40, hard: 41 },
+    { maxStreak: Infinity, easy: 10, medium: 34, hard: 56 },
+  ],
+  poolBalanceExponent: 2,
+  antiStreak: {
+    hardSoftAfter: 2,
+    hardWeightMultiplier: 0.35,
+    hardCap: 3,
+    easySoftAfter: 3,
+    easyWeightMultiplier: 0.35,
+    easyCap: 4,
+  },
+} as const
+
+export type TriviaDifficultyCounts = Record<TriviaDifficulty, number>
+export type TriviaDifficultyWeights = Record<TriviaDifficulty, number>
+export type TriviaConfig = typeof TRIVIA_CONFIG
+
+export type NextQuestion = {
+  question: TriviaQuestion
+  id: string
+  seen: string[]
+  cycleReset: boolean
+}
+
+export type GameSelection = {
+  game: TriviaGame
+  seen: string[]
+  cycleReset: boolean
+}
+
 const NEXT_LABEL = '[ Next question ]'
 const OUTRO_BUTTON_WIDTH = 20
 const CHART_WIDTH = 29
@@ -126,7 +164,7 @@ export const shuffle = <T>(items: readonly T[], random: () => number): T[] => {
 const hashByte = (hash: number, byte: number): number => Math.imul(hash ^ byte, 0x01000193)
 
 export const questionId = (question: string): string => {
-  const normalized = question.trim().toLowerCase()
+  const normalized = decodeEntities(question).trim().toLowerCase()
   let hash = 0x811c9dc5
 
   for (const character of normalized) {
@@ -162,42 +200,24 @@ export const parseSeen = (value: unknown): string[] => {
   return seen
 }
 
-const uniqueQuestions = (bank: readonly TriviaQuestion[]): TriviaQuestion[] => {
+type QuestionEntry = { question: TriviaQuestion; id: string }
+
+const uniqueQuestionEntries = (bank: readonly TriviaQuestion[]): QuestionEntry[] => {
   const ids = new Set<string>()
-  return bank.filter(question => {
+  return bank.flatMap((question): QuestionEntry[] => {
     const id = questionId(question.question)
-    if (ids.has(id)) return false
+    if (ids.has(id)) return []
     ids.add(id)
-    return true
+    return [{ question, id }]
   })
 }
+
+const uniqueQuestions = (bank: readonly TriviaQuestion[]): TriviaQuestion[] =>
+  uniqueQuestionEntries(bank).map(entry => entry.question)
 
 const cleanSeen = (bank: readonly TriviaQuestion[], seen: readonly string[]): string[] => {
   const bankIds = new Set(uniqueQuestions(bank).map(question => questionId(question.question)))
   return [...new Set(seen.filter(id => bankIds.has(id)))]
-}
-
-export const seenForNewGame = (
-  bank: readonly TriviaQuestion[],
-  seen: readonly string[],
-): string[] => {
-  const clean = cleanSeen(bank, seen)
-  const seenIds = new Set(clean)
-  const bankIds = uniqueQuestions(bank).map(question => questionId(question.question))
-  if (bankIds.length > 0 && bankIds.every(id => seenIds.has(id))) return []
-  return clean
-}
-
-export const orderByUnseen = (
-  bank: readonly TriviaQuestion[],
-  seen: readonly string[],
-  random: () => number = Math.random,
-): TriviaQuestion[] => {
-  const questions = uniqueQuestions(bank)
-  const seenIds = new Set(seenForNewGame(bank, seen))
-  const unseen = questions.filter(question => !seenIds.has(questionId(question.question)))
-  const viewed = questions.filter(question => seenIds.has(questionId(question.question)))
-  return [...shuffle(unseen, random), ...shuffle(viewed, random)]
 }
 
 export const markSeen = (
@@ -233,25 +253,238 @@ const makeRound = (question: TriviaQuestion, random: () => number): TriviaRound 
   }
 }
 
-export const newGame = (
+const DIFFICULTIES: readonly TriviaDifficulty[] = ['easy', 'medium', 'hard']
+
+const emptyCounts = (): TriviaDifficultyCounts => ({ easy: 0, medium: 0, hard: 0 })
+
+const safeRandom = (random: () => number): number => {
+  const sample = random()
+  return Number.isFinite(sample) ? Math.max(0, Math.min(sample, 0.999999999999)) : 0
+}
+
+export const difficultyWeights = (
+  streak: number,
+  config: TriviaConfig = TRIVIA_CONFIG,
+): TriviaDifficultyWeights => {
+  const normalizedStreak = Number.isFinite(streak) ? Math.max(0, Math.floor(streak)) : 0
+  const entry = config.difficultyWeights.find(weight => normalizedStreak <= weight.maxStreak)
+  const selected = entry ?? config.difficultyWeights[config.difficultyWeights.length - 1]!
+  return { easy: selected.easy, medium: selected.medium, hard: selected.hard }
+}
+
+export const poolFactors = (
+  totals: TriviaDifficultyCounts,
+  remaining: TriviaDifficultyCounts,
+  config: TriviaConfig = TRIVIA_CONFIG,
+): TriviaDifficultyCounts => {
+  const totalQuestions = DIFFICULTIES.reduce((sum, difficulty) => sum + totals[difficulty], 0)
+  const remainingQuestions = DIFFICULTIES.reduce(
+    (sum, difficulty) => sum + remaining[difficulty],
+    0,
+  )
+  if (totalQuestions <= 0 || remainingQuestions <= 0) return emptyCounts()
+
+  const remainingShare = remainingQuestions / totalQuestions
+  const factors = emptyCounts()
+  for (const difficulty of DIFFICULTIES) {
+    const total = totals[difficulty]
+    const left = remaining[difficulty]
+    if (total <= 0 || left <= 0) continue
+    const difficultyShare = left / total
+    factors[difficulty] = Math.pow(difficultyShare / remainingShare, config.poolBalanceExponent)
+  }
+  return factors
+}
+
+const trailingCount = (
+  recent: readonly TriviaDifficulty[],
+  difficulty: TriviaDifficulty,
+): number => {
+  let count = 0
+  for (let index = recent.length - 1; index >= 0; index--) {
+    if (recent[index] !== difficulty) break
+    count++
+  }
+  return count
+}
+
+export const antiStreakWeights = (
+  weights: TriviaDifficultyWeights,
+  recent: readonly TriviaDifficulty[],
+  available: TriviaDifficultyCounts,
+  config: TriviaConfig = TRIVIA_CONFIG,
+): TriviaDifficultyWeights => {
+  const adjusted = { ...weights }
+  const blocked: TriviaDifficulty[] = []
+  const hardRun = trailingCount(recent, 'hard')
+  const easyRun = trailingCount(recent, 'easy')
+
+  if (hardRun >= config.antiStreak.hardCap) {
+    adjusted.hard = 0
+    blocked.push('hard')
+  } else if (hardRun >= config.antiStreak.hardSoftAfter) {
+    adjusted.hard *= config.antiStreak.hardWeightMultiplier
+  }
+  if (easyRun >= config.antiStreak.easyCap) {
+    adjusted.easy = 0
+    blocked.push('easy')
+  } else if (easyRun >= config.antiStreak.easySoftAfter) {
+    adjusted.easy *= config.antiStreak.easyWeightMultiplier
+  }
+
+  const allAvailableBlocked = DIFFICULTIES.every(
+    difficulty => available[difficulty] <= 0 || adjusted[difficulty] <= 0,
+  )
+  if (allAvailableBlocked) {
+    for (const difficulty of blocked) adjusted[difficulty] = weights[difficulty]
+  }
+  return adjusted
+}
+
+export const pickDifficulty = (
+  weights: TriviaDifficultyWeights,
+  available: TriviaDifficultyCounts,
+  random: () => number,
+): TriviaDifficulty | null => {
+  const candidates = DIFFICULTIES.filter(difficulty => available[difficulty] > 0)
+  if (candidates.length === 0) return null
+
+  const totalWeight = candidates.reduce((sum, difficulty) => sum + weights[difficulty], 0)
+  const proportional = totalWeight <= 0
+  const total = proportional
+    ? candidates.reduce((sum, difficulty) => sum + available[difficulty], 0)
+    : totalWeight
+  let target = safeRandom(random) * total
+
+  for (const difficulty of candidates) {
+    target -= proportional ? available[difficulty] : weights[difficulty]
+    if (target < 0) return difficulty
+  }
+  return candidates[candidates.length - 1]!
+}
+
+const countByDifficulty = (
+  questions: readonly TriviaQuestion[],
+): TriviaDifficultyCounts => {
+  const counts = emptyCounts()
+  for (const question of questions) counts[question.difficulty]++
+  return counts
+}
+
+const recentWith = (
+  recent: readonly TriviaDifficulty[],
+  difficulty: TriviaDifficulty,
+): TriviaDifficulty[] => [...recent, difficulty].slice(-4)
+
+export const pickNextQuestion = (
   bank: readonly TriviaQuestion[],
+  seen: readonly string[],
+  askedIds: readonly string[],
+  streak: number,
+  recent: readonly TriviaDifficulty[],
   random: () => number = Math.random,
-  seen: readonly string[] = [],
-): TriviaGame => {
-  const questions = orderByUnseen(bank, seen, random)
-  const rounds = questions.map(question => makeRound(question, random))
+  config: TriviaConfig = TRIVIA_CONFIG,
+): NextQuestion | null => {
+  const entries = uniqueQuestionEntries(bank)
+  if (entries.length === 0) return null
+
+  const bankIds = new Set(entries.map(entry => entry.id))
+  const asked = [...new Set(askedIds.filter(id => bankIds.has(id)))]
+  const askedSet = new Set(asked)
+  let cleanedSeen = [...new Set(seen.filter(id => bankIds.has(id)))]
+  const seenSet = new Set(cleanedSeen)
+  const unseen = entries.filter(entry => !seenSet.has(entry.id) && !askedSet.has(entry.id))
+
+  let candidates = unseen
+  let cycleReset = false
+  if (candidates.length === 0) {
+    candidates = entries.filter(entry => !askedSet.has(entry.id))
+    if (candidates.length === 0) return null
+    cleanedSeen = asked
+    cycleReset = true
+  }
+
+  const totals = countByDifficulty(entries.map(entry => entry.question))
+  const remaining = countByDifficulty(candidates.map(entry => entry.question))
+  const base = difficultyWeights(streak, config)
+  const factors = poolFactors(totals, remaining, config)
+  const pooled: TriviaDifficultyWeights = {
+    easy: base.easy * factors.easy,
+    medium: base.medium * factors.medium,
+    hard: base.hard * factors.hard,
+  }
+  const balanced = antiStreakWeights(pooled, recent.slice(-4), remaining, config)
+  const difficulty = pickDifficulty(balanced, remaining, random)
+  if (!difficulty) return null
+
+  const questionPool = candidates.filter(entry => entry.question.difficulty === difficulty)
+  const index = Math.floor(safeRandom(random) * questionPool.length)
+  const selected = questionPool[index]
+  if (!selected) return null
 
   return {
-    rounds,
-    currentIndex: 0,
-    streak: 0,
-    phase: 'idle',
+    question: selected.question,
+    id: selected.id,
+    seen: cleanedSeen,
+    cycleReset,
+  }
+}
+
+const gameFromSelection = (
+  selection: NextQuestion | null,
+  random: () => number,
+  phase: TriviaGame['phase'],
+  streak = 0,
+  recent: readonly TriviaDifficulty[] = [],
+  askedIds: readonly string[] = [],
+): TriviaGame => {
+  if (!selection) {
+    return {
+      round: null,
+      roundId: null,
+      askedIds: [...askedIds],
+      recent: [...recent].slice(-4),
+      streak,
+      phase,
+      selectedAnswer: null,
+    }
+  }
+
+  return {
+    round: makeRound(selection.question, random),
+    roundId: selection.id,
+    askedIds: [...askedIds, selection.id],
+    recent: recentWith(recent, selection.question.difficulty),
+    streak,
+    phase,
     selectedAnswer: null,
   }
 }
 
-export const currentRound = (game: TriviaGame): TriviaRound | null =>
-  game.rounds[game.currentIndex] ?? null
+export const newGame = (
+  bank: readonly TriviaQuestion[],
+  random: () => number = Math.random,
+  seen: readonly string[] = [],
+  config: TriviaConfig = TRIVIA_CONFIG,
+): GameSelection => {
+  const selection = pickNextQuestion(bank, seen, [], 0, [], random, config)
+  const game = gameFromSelection(selection, random, 'idle')
+  return {
+    game: { ...game, askedIds: [], recent: [] },
+    seen: selection?.seen ?? cleanSeen(bank, seen),
+    cycleReset: selection?.cycleReset ?? false,
+  }
+}
+
+export const beginGame = (game: TriviaGame): TriviaGame => {
+  if (game.phase !== 'idle' || !game.round || !game.roundId) return game
+  return {
+    ...game,
+    askedIds: [...new Set([...game.askedIds, game.roundId])],
+    recent: recentWith(game.recent, game.round.difficulty),
+    phase: 'asking',
+  }
+}
 
 export const pick = (game: TriviaGame, choice: number): TriviaGame => {
   if (game.phase !== 'asking' || !Number.isInteger(choice) || choice < 0 || choice > 3) {
@@ -261,16 +494,19 @@ export const pick = (game: TriviaGame, choice: number): TriviaGame => {
   return { ...game, phase: 'locked', selectedAnswer: choice as 0 | 1 | 2 | 3 }
 }
 
-export const reveal = (game: TriviaGame): TriviaGame => {
+export const reveal = (
+  game: TriviaGame,
+  bank: readonly TriviaQuestion[],
+): TriviaGame => {
   if (game.phase !== 'locked' || game.selectedAnswer === null) return game
-  const round = currentRound(game)
+  const round = game.round
   if (!round) return game
 
   const isCorrect = game.selectedAnswer === round.correctIndex
   if (!isCorrect) return { ...game, phase: 'wrong' }
 
   const streak = game.streak + 1
-  const isLast = game.currentIndex === game.rounds.length - 1
+  const isLast = game.askedIds.length >= uniqueQuestions(bank).length
   return {
     ...game,
     streak,
@@ -278,34 +514,40 @@ export const reveal = (game: TriviaGame): TriviaGame => {
   }
 }
 
-export const next = (game: TriviaGame): TriviaGame => {
-  if (game.phase !== 'correct' || game.currentIndex >= game.rounds.length - 1) return game
-  return {
-    ...game,
-    currentIndex: game.currentIndex + 1,
-    phase: 'asking',
-    selectedAnswer: null,
-  }
-}
-
-export const startOrRestart = (
-  game: TriviaGame | null,
+export const next = (
+  game: TriviaGame,
   bank: readonly TriviaQuestion[],
   random: () => number = Math.random,
   seen: readonly string[] = [],
-): TriviaGame | null => {
-  if (!game) {
-    const fresh = newGame(bank, random, seen)
-    return fresh.rounds.length > 0 ? { ...fresh, phase: 'asking' } : fresh
+  config: TriviaConfig = TRIVIA_CONFIG,
+): GameSelection => {
+  if (game.phase !== 'correct') {
+    return { game, seen: [...seen], cycleReset: false }
   }
-
-  if (game.phase === 'idle') {
-    return game.rounds.length > 0 ? { ...game, phase: 'asking' } : game
+  const selection = pickNextQuestion(
+    bank,
+    seen,
+    game.askedIds,
+    game.streak,
+    game.recent,
+    random,
+    config,
+  )
+  const updated = selection
+    ? gameFromSelection(
+      selection,
+      random,
+      'asking',
+      game.streak,
+      game.recent,
+      game.askedIds,
+    )
+    : { ...game, phase: 'cleared' as const }
+  return {
+    game: updated,
+    seen: selection?.seen ?? cleanSeen(bank, seen),
+    cycleReset: selection?.cycleReset ?? false,
   }
-  if (game.phase !== 'wrong' && game.phase !== 'cleared') return game
-
-  const fresh = newGame(bank, random, seen)
-  return fresh.rounds.length > 0 ? { ...fresh, phase: 'asking' } : fresh
 }
 
 export const isTriviaMessage = (value: unknown): value is TriviaMessage => {

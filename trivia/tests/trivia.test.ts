@@ -5,21 +5,25 @@ import type { RenderElement, RenderNode } from 'claude-code'
 import type { TriviaGame, TriviaHistory, TriviaProps, TriviaQuestion } from '../types'
 import {
   addGame,
+  antiStreakWeights,
+  beginGame,
   decodeEntities,
+  difficultyWeights,
   emptyHistory,
   layout,
   markSeen,
   newGame,
   next,
-  orderByUnseen,
   parseHistory,
   parseQuestionBank,
   parseSeen,
   pick,
+  pickDifficulty,
+  pickNextQuestion,
+  poolFactors,
   questionId,
   reveal,
-  startOrRestart,
-  seenForNewGame,
+  TRIVIA_CONFIG,
 } from '../hooks/trivia'
 import { stageGame } from '../hooks/register'
 
@@ -35,9 +39,8 @@ const sampleBank = (count = 30): TriviaQuestion[] =>
   }))
 
 const startGame = (bank = sampleBank()): TriviaGame => {
-  const game = startOrRestart(newGame(bank, fixedRandom), bank, fixedRandom)
-  if (!game) throw new Error('Expected a game')
-  return game
+  const game = newGame(bank, fixedRandom).game
+  return beginGame(game)
 }
 
 const sourceQuestion = {
@@ -89,44 +92,42 @@ test('decodes entities and filters boolean and malformed bank entries', () => {
   expect(bank[0]!.correctAnswer).toBe('A & B')
 })
 
-test('shuffles every bank question without repeats and keeps correct answer keys', () => {
+test('starts one shuffled round and preserves its correct answer key', () => {
   const bank = sampleBank()
-  const game = newGame(bank, fixedRandom)
-  expect(game.rounds).toHaveLength(bank.length)
-  expect(new Set(game.rounds.map(round => round.question)).size).toBe(bank.length)
-  expect(game.rounds.map(round => round.question).join('|') ===
-    bank.map(question => question.question).join('|')).toBe(false)
-  expect(game.rounds.every(round => round.answers[round.correctIndex] !== undefined)).toBe(true)
-  expect(game.rounds.every(round => new Set(round.answers).size === 4)).toBe(true)
-  expect(new Set(game.rounds.map(round => round.difficulty)).size).toBe(3)
+  const game = newGame(bank, fixedRandom).game
+  expect(game.round).toBeDefined()
+  expect(game.askedIds).toHaveLength(0)
+  expect(game.recent).toHaveLength(0)
+  expect(game.round!.answers[game.round!.correctIndex]).toBeDefined()
+  expect(new Set(game.round!.answers).size).toBe(4)
   expect(game.phase).toBe('idle')
   expect(game.streak).toBe(0)
-  expect(newGame(sampleBank(3), fixedRandom).rounds).toHaveLength(3)
+  expect(newGame(sampleBank(3), fixedRandom).game.askedIds).toHaveLength(0)
 })
 
-test('hashes normalized questions and cycles through unseen questions first', () => {
+test('hashes normalized questions and starts a fresh seen cycle when needed', () => {
   const bank = sampleBank(6)
   const firstId = questionId(bank[0]!.question)
   const secondId = questionId(bank[1]!.question)
   const seen = [firstId, questionId(bank[4]!.question)]
-  const ordered = orderByUnseen(bank, seen, fixedRandom)
-  const orderedIds = ordered.map(question => questionId(question.question))
+  const picked = pickNextQuestion(bank, seen, [], 0, [], fixedRandom)!
 
-  expect(questionId('  WHAT IS π?  ')).toBe(questionId('what is π?'))
-  expect(questionId('What is π?')).not.toBe(questionId('What is pi?'))
+  expect(questionId('  WHAT IS \u03c0?  ')).toBe(questionId('what is \u03c0?'))
+  expect(questionId('What is \u03c0?')).not.toBe(questionId('What is pi?'))
+  expect(questionId('&quot;Hi&amp;bye&quot;')).toBe(questionId('"hi&bye"'))
   expect(firstId).toMatch(/^[\da-f]{8}$/)
-  expect(ordered).toHaveLength(bank.length)
-  expect(new Set(orderedIds).size).toBe(bank.length)
-  expect(orderedIds.slice(0, 4).every(id => !seen.includes(id))).toBe(true)
-  expect(orderedIds.slice(4).every(id => seen.includes(id))).toBe(true)
+  expect(seen.includes(picked.id)).toBe(false)
+  expect(picked.seen).toEqual(seen)
 
-  const restarted = newGame(bank, fixedRandom, seen)
-  expect(restarted.rounds.slice(0, 4).map(round => questionId(round.question)))
-    .toEqual(orderedIds.slice(0, 4))
   const allSeen = bank.map(question => questionId(question.question))
-  expect(seenForNewGame(bank, allSeen)).toEqual([])
-  expect(newGame(bank, fixedRandom, allSeen).rounds).toHaveLength(bank.length)
-  expect(seenForNewGame(bank, [secondId, 'deadbeef'])).toEqual([secondId])
+  const restarted = newGame(bank, fixedRandom, allSeen)
+  expect(restarted.cycleReset).toBe(true)
+  expect(restarted.seen).toEqual([])
+  expect(restarted.game.askedIds).toHaveLength(0)
+
+  const cleaned = pickNextQuestion(bank, [secondId, 'deadbeef'], [], 0, [], fixedRandom)!
+  expect(cleaned.seen).toEqual([secondId])
+  expect(cleaned.id).not.toBe(secondId)
   expect(markSeen(bank, ['deadbeef'], bank[0]!.question)).toEqual([firstId])
   expect(parseSeen(['A1B2C3D4', '0123abcd'])).toEqual(['a1b2c3d4', '0123abcd'])
   expect(parseSeen(['0123abcd', 'invalid'])).toEqual([])
@@ -134,57 +135,151 @@ test('hashes normalized questions and cycles through unseen questions first', ()
   expect(parseSeen({ seen: [] })).toEqual([])
 })
 
-test('scores a streak, ends on a wrong answer, clears the bank and ignores other phases', () => {
-  const bank = sampleBank()
-  const idle = newGame(bank, fixedRandom)
+test('uses the exact difficulty weights at every streak boundary', () => {
+  const cases = [
+    [0, 90, 9, 1], [1, 84, 14, 2], [2, 84, 14, 2],
+    [3, 64, 29, 7], [5, 64, 29, 7], [6, 46, 38, 16],
+    [9, 46, 38, 16], [10, 31, 42, 27], [14, 31, 42, 27],
+    [15, 19, 40, 41], [19, 19, 40, 41], [20, 10, 34, 56],
+    [100, 10, 34, 56],
+  ] as const
+
+  for (const [streak, easy, medium, hard] of cases) {
+    expect(difficultyWeights(streak)).toEqual({ easy, medium, hard })
+  }
+  expect(TRIVIA_CONFIG.poolBalanceExponent).toBe(2)
+})
+
+test('balances remaining pools and applies the anti-streak rules', () => {
+  const even = { easy: 10, medium: 10, hard: 10 }
+  expect(poolFactors(even, { easy: 5, medium: 5, hard: 5 }))
+    .toEqual({ easy: 1, medium: 1, hard: 1 })
+
+  const consumedEasy = poolFactors(
+    { easy: 100, medium: 100, hard: 100 },
+    { easy: 10, medium: 80, hard: 80 },
+  )
+  expect(consumedEasy.easy < 1).toBe(true)
+  expect(consumedEasy.medium > 1).toBe(true)
+  expect(consumedEasy.hard > 1).toBe(true)
+  expect(poolFactors(even, { easy: 0, medium: 5, hard: 5 }).easy).toBe(0)
+
+  const weights = { easy: 10, medium: 10, hard: 10 }
+  const allAvailable = { easy: 1, medium: 1, hard: 1 }
+  expect(antiStreakWeights(weights, ['hard', 'hard'], allAvailable).hard).toBe(3.5)
+  expect(antiStreakWeights(weights, ['hard', 'hard', 'hard'], allAvailable).hard).toBe(0)
+  expect(antiStreakWeights(weights, ['easy', 'easy', 'easy'], allAvailable).easy).toBe(3.5)
+  expect(antiStreakWeights(weights, ['easy', 'easy', 'easy', 'easy'], allAvailable).easy).toBe(0)
+  expect(antiStreakWeights(weights, ['hard', 'hard', 'medium'], allAvailable).hard).toBe(10)
+  expect(antiStreakWeights(weights, ['easy', 'easy', 'easy', 'medium'], allAvailable).easy).toBe(10)
+  expect(antiStreakWeights(weights, ['hard', 'hard', 'hard'], {
+    easy: 0, medium: 0, hard: 1,
+  }).hard).toBe(10)
+  expect(pickDifficulty({ easy: 0, medium: 0, hard: 0 }, {
+    easy: 1, medium: 3, hard: 6,
+  }, () => 0.2)).toBe('medium')
+})
+
+test('selects deterministically without mutating inputs and resets cycles around asked IDs', () => {
+  const bank = sampleBank(8)
+  const seen = [questionId(bank[0]!.question)]
+  const askedIds = [questionId(bank[1]!.question)]
+  const recent = ['hard', 'medium'] as const
+  const snapshot = JSON.stringify({ bank, seen, askedIds, recent })
+  const first = pickNextQuestion(bank, seen, askedIds, 3, recent, fixedRandom)!
+  const second = pickNextQuestion(bank, seen, askedIds, 3, recent, fixedRandom)!
+
+  expect(first.id).toBe(second.id)
+  expect(seen.includes(first.id)).toBe(false)
+  expect(askedIds.includes(first.id)).toBe(false)
+  expect(JSON.stringify({ bank, seen, askedIds, recent })).toBe(snapshot)
+
+  const allSeen = bank.map(question => questionId(question.question))
+  const shown = [allSeen[0]!, allSeen[1]!]
+  const cycled = pickNextQuestion(bank, allSeen, shown, 2, [], fixedRandom)!
+  expect(cycled.cycleReset).toBe(true)
+  expect(cycled.seen).toEqual(shown)
+  expect(shown.includes(cycled.id)).toBe(false)
+
+  const active = beginGame(newGame(bank, fixedRandom).game)
+  const answered = reveal(pick(active, active.round!.correctIndex), bank)
+  const afterReset = next(answered, bank, fixedRandom, allSeen)
+  expect(afterReset.cycleReset).toBe(true)
+  expect(afterReset.seen).toEqual(active.askedIds)
+  expect(afterReset.game.askedIds.slice(0, active.askedIds.length)).toEqual(active.askedIds)
+})
+
+test('matches the intended difficulty distribution with a seeded random source', () => {
+  const totals = { easy: 330, medium: 435, hard: 233 }
+  const seededRandom = (seed: number) => () => {
+    seed = (Math.imul(seed, 1_664_525) + 1_013_904_223) >>> 0
+    return seed / 0x1_0000_0000
+  }
+  const measure = (streak: number, seed: number) => {
+    const random = seededRandom(seed)
+    const base = difficultyWeights(streak)
+    const factors = poolFactors(totals, totals)
+    const weights = antiStreakWeights({
+      easy: base.easy * factors.easy,
+      medium: base.medium * factors.medium,
+      hard: base.hard * factors.hard,
+    }, [], totals)
+    const counts = { easy: 0, medium: 0, hard: 0 }
+    for (let draw = 0; draw < 20_000; draw++) {
+      const selected = pickDifficulty(weights, totals, random)!
+      counts[selected]++
+    }
+    return counts
+  }
+
+  const atStart = measure(0, 1)
+  expect(atStart.easy / 20_000 >= 0.87 && atStart.easy / 20_000 <= 0.93).toBe(true)
+  expect(atStart.hard / 20_000 < 0.03).toBe(true)
+  const lateStreak = measure(25, 2)
+  expect(lateStreak.hard / 20_000 > 0.45).toBe(true)
+})
+
+test('scores streaks, ends on an error and clears after showing the whole bank', () => {
+  const bank = sampleBank(5)
+  const idle = newGame(bank, fixedRandom).game
   expect(pick(idle, 0)).toBe(idle)
-  expect(reveal(idle)).toBe(idle)
-  expect(next(idle)).toBe(idle)
+  expect(reveal(idle, bank)).toBe(idle)
+  expect(next(idle, bank, fixedRandom).game).toBe(idle)
 
   let game = startGame(bank)
-  expect(reveal(game)).toBe(game)
-  expect(next(game)).toBe(game)
-
-  const firstRound = game.rounds[0]!
-  game = pick(game, firstRound.correctIndex)
-  expect(game.phase).toBe('locked')
-  expect(pick(game, 0)).toBe(game)
-  game = reveal(game)
+  game = reveal(pick(game, game.round!.correctIndex), bank)
   expect(game.phase).toBe('correct')
   expect(game.streak).toBe(1)
-  game = next(game)
+  game = next(game, bank, fixedRandom).game
   expect(game.phase).toBe('asking')
-  expect(game.currentIndex).toBe(1)
+  expect(game.askedIds).toHaveLength(2)
   expect(game.streak).toBe(1)
 
   game = startGame(bank)
-  for (let question = 0; question < 4; question++) {
-    const answer = game.rounds[game.currentIndex]!.correctIndex
-    game = reveal(pick(game, answer))
-    game = next(game)
+  for (let question = 0; question < bank.length; question++) {
+    game = reveal(pick(game, game.round!.correctIndex), bank)
+    if (question < bank.length - 1) game = next(game, bank, fixedRandom).game
   }
-  expect(game.streak).toBe(4)
+  expect(game.phase).toBe('cleared')
+  expect(game.streak).toBe(bank.length)
+  expect(game.askedIds).toHaveLength(bank.length)
 
-  const fifthRound = game.rounds[game.currentIndex]!
-  const wrongChoice = fifthRound.correctIndex === 0 ? 1 : 0
-  game = reveal(pick(game, wrongChoice))
+  game = startGame(bank)
+  for (let question = 0; question < 4; question++) {
+    game = reveal(pick(game, game.round!.correctIndex), bank)
+    game = next(game, bank, fixedRandom).game
+  }
+  const wrongChoice = game.round!.correctIndex === 0 ? 1 : 0
+  game = reveal(pick(game, wrongChoice), bank)
   expect(game.phase).toBe('wrong')
   expect(game.streak).toBe(4)
-  expect(next(game)).toBe(game)
-  expect(reveal(game)).toBe(game)
-  const restarted = startOrRestart(game, bank, fixedRandom)
-  expect(restarted?.phase).toBe('asking')
-  expect(restarted?.currentIndex).toBe(0)
-  expect(restarted?.streak).toBe(0)
+  expect(next(game, bank, fixedRandom).game).toBe(game)
+  expect(reveal(game, bank)).toBe(game)
 
-  let finalGame = startGame(sampleBank(1))
-  const finalAnswer = finalGame.rounds[0]!.correctIndex
-  finalGame = reveal(pick(finalGame, finalAnswer))
-  expect(finalGame.phase).toBe('cleared')
-  expect(finalGame.streak).toBe(1)
-  expect(startOrRestart(finalGame, sampleBank(1), fixedRandom)?.phase).toBe('asking')
+  const oneQuestion = sampleBank(1)
+  const final = startGame(oneQuestion)
+  expect(reveal(pick(final, final.round!.correctIndex), oneQuestion).phase).toBe('cleared')
 })
-
 test('keeps the newest ten history entries and treats invalid history as empty', () => {
   let history: TriviaHistory = emptyHistory()
   for (let streak = 0; streak < 12; streak++) {
@@ -287,10 +382,8 @@ test('saves a revealed ID so a fresh session starts with an unseen question', as
     const nextUi = await mount()
     try {
       const persistedSeen = [...initiallySeen, previousQuestionId]
-      const expectedUnseenId = bank
-        .map(question => questionId(question.question))
-        .find(id => !persistedSeen.includes(id))
-      expect(expectedUnseenId).toBeDefined()
+      expect(bank.some(question => !persistedSeen.includes(questionId(question.question))))
+        .toBe(true)
       let current = triviaProps(await nextUi.find({ key: 'stage' })).game!
       if (current.phase === 'wrong' || current.phase === 'cleared') {
         await nextUi.pointer({ type: 'down', x: 0, y: 0, button: 'left', in: 'stage' })
@@ -315,8 +408,8 @@ test('saves a revealed ID so a fresh session starts with an unseen question', as
         current = triviaProps(await nextUi.find({ key: 'stage' })).game!
       }
       expect(current.phase).toBe('asking')
-      expect(current.currentIndex).toBe(0)
-      expect(questionId(current.round!.question)).toBe(expectedUnseenId)
+      expect(current.roundId).toBeDefined()
+      expect(persistedSeen.includes(current.roundId!)).toBe(false)
     } finally {
       await nextUi.unmount()
     }
@@ -477,6 +570,7 @@ test('loads, saves and displays streak history in the mounted band', async ($, o
 
   const askingGame = triviaProps(await ui.find({ key: 'stage' })).game!
   const correctBox = geometry.answerBoxes[askingGame.round!.correctIndex]!
+  const firstRoundId = askingGame.roundId
   await ui.pointer({
     type: 'down',
     x: correctBox.x + 2,
@@ -493,7 +587,7 @@ test('loads, saves and displays streak history in the mounted band', async ($, o
   await ui.pointer({ type: 'down', x: 0, y: 0, button: 'left', in: 'stage' })
   await ui.advance(1_600)
   currentGame = triviaProps(await ui.find({ key: 'stage' })).game!
-  expect(currentGame.currentIndex).toBe(1)
+  expect(currentGame.roundId).not.toBe(firstRoundId)
   const wrongChoice = currentGame.round!.correctIndex === 0 ? 1 : 0
   const wrongBox = geometry.answerBoxes[wrongChoice]!
   await ui.pointer({
@@ -515,6 +609,7 @@ test('loads, saves and displays streak history in the mounted band', async ($, o
   const wrongGrid = canvasOf(await ui.drawn({ in: 'stage' }))
   expectGridWidth(wrongGrid, 60)
   const correctAnswer = currentGame.round!
+  const missedRoundId = currentGame.roundId
   const answerLabel = String.fromCharCode(65 + correctAnswer.correctIndex)
   expect(wrongGrid[4]!.join('')).not.toContain('Best')
   expect(wrongGrid[11]!.join('')).toContain(
@@ -551,7 +646,7 @@ test('loads, saves and displays streak history in the mounted band', async ($, o
   })
   const restarted = triviaProps(await ui.find({ key: 'stage' }))
   expect(restarted.game?.phase).toBe('asking')
-  expect(restarted.game?.currentIndex).toBe(0)
+  expect(restarted.game?.roundId).not.toBe(missedRoundId)
   expect(restarted.game?.streak).toBe(0)
   expect(restarted.best).toBe(1)
   await ui.unmount()
@@ -738,10 +833,10 @@ test('hands the Client only the current round, however large the bank is', () =>
     correctAnswer: `Right answer ${index}`,
     incorrectAnswers: [`Wrong A ${index}`, `Wrong B ${index}`, `Wrong C ${index}`],
   }))
-  const game = newGame(bank, fixedRandom)
-  const visible = stageGame(game)
+  const game = newGame(bank, fixedRandom).game
+  const visible = stageGame(game, bank.length)
 
   expect(visible?.roundCount).toBe(5_000)
-  expect(visible?.round?.question).toBe(game.rounds[0]!.question)
+  expect(visible?.round?.question).toBe(game.round!.question)
   expect(JSON.stringify(visible).length < 2_000).toBe(true)
 })
