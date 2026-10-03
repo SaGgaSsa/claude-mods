@@ -1325,18 +1325,6 @@
                         "type":  "multiple",
                         "difficulty":  "easy",
                         "category":  "Geography",
-                        "question":  "What does the flag of Italy look like?",
-                        "correct_answer":  "Three equal vertical bands of green white and red.",
-                        "incorrect_answers":  [
-                                                  "Three equal horizontal bands of red white and black.",
-                                                  "Red with a green five-pointed star in the center.",
-                                                  "Red field with a yellow sun in the center."
-                                              ]
-                    },
-                    {
-                        "type":  "multiple",
-                        "difficulty":  "easy",
-                        "category":  "Geography",
                         "question":  "Which of these cities is in Spain?",
                         "correct_answer":  "Bilbao",
                         "incorrect_answers":  [
@@ -1883,18 +1871,6 @@
                                                   "Belgium",
                                                   "Russia",
                                                   "Greece"
-                                              ]
-                    },
-                    {
-                        "type":  "multiple",
-                        "difficulty":  "medium",
-                        "category":  "Geography",
-                        "question":  "What does the flag of Belgium look like?",
-                        "correct_answer":  "Three vertical bands of black yellow and red.",
-                        "incorrect_answers":  [
-                                                  "Two equal horizontal bands of red and white.",
-                                                  "Red field with a yellow sun in the center.",
-                                                  "Red with five yellow stars in the top left."
                                               ]
                     },
                     {
@@ -3029,18 +3005,6 @@
                         "type":  "multiple",
                         "difficulty":  "medium",
                         "category":  "History",
-                        "question":  "Which of the following is NOT a cause of the Renaissance?",
-                        "correct_answer":  "Invention of the Steam Engine",
-                        "incorrect_answers":  [
-                                                  "Rediscovery of Ancient Greek and Roman Art and Ideas",
-                                                  "Increase in Trade",
-                                                  "Spread of Printing Press"
-                                              ]
-                    },
-                    {
-                        "type":  "multiple",
-                        "difficulty":  "medium",
-                        "category":  "History",
                         "question":  "Which female leader of India was killed by her bodyguards in 1984?",
                         "correct_answer":  "Indira Gandhi",
                         "incorrect_answers":  [
@@ -4037,36 +4001,12 @@
                         "type":  "multiple",
                         "difficulty":  "medium",
                         "category":  "Science",
-                        "question":  "What is Kinesiology the study of?",
-                        "correct_answer":  "movement in relation to human anatomy; a branch of medicine",
-                        "incorrect_answers":  [
-                                                  "cells",
-                                                  "interactions among organisms and the water cycle",
-                                                  "animals that may or may not be mythical"
-                                              ]
-                    },
-                    {
-                        "type":  "multiple",
-                        "difficulty":  "medium",
-                        "category":  "Science",
                         "question":  "Meningitis affects the _________.",
                         "correct_answer":  "Brain",
                         "incorrect_answers":  [
                                                   "Lungs",
                                                   "Heart",
                                                   "Kidneys"
-                                              ]
-                    },
-                    {
-                        "type":  "multiple",
-                        "difficulty":  "medium",
-                        "category":  "Science",
-                        "question":  "What is Ontology the study of?",
-                        "correct_answer":  "existence",
-                        "incorrect_answers":  [
-                                                  "a branch of soil science that studies the influence of soil on life",
-                                                  "grasses",
-                                                  "the scientific study of muscles"
                                               ]
                     },
                     {
@@ -4409,18 +4349,6 @@
                         "type":  "multiple",
                         "difficulty":  "medium",
                         "category":  "Science",
-                        "question":  "What is Nanotechnology the study of?",
-                        "correct_answer":  "the study and design of machines at the molecular level",
-                        "incorrect_answers":  [
-                                                  "things in order of time or time",
-                                                  "movement in relation to human anatomy; a branch of medicine",
-                                                  "wine"
-                                              ]
-                    },
-                    {
-                        "type":  "multiple",
-                        "difficulty":  "medium",
-                        "category":  "Science",
                         "question":  "What is a baby spider known as?",
                         "correct_answer":  "A Spiderling",
                         "incorrect_answers":  [
@@ -4463,18 +4391,6 @@
                                                   "Wood",
                                                   "Metal",
                                                   "Rock"
-                                              ]
-                    },
-                    {
-                        "type":  "multiple",
-                        "difficulty":  "medium",
-                        "category":  "Science",
-                        "question":  "What is Metrology the study of?",
-                        "correct_answer":  "measurement",
-                        "incorrect_answers":  [
-                                                  "the relationship of biological or other phenomena to their locations",
-                                                  "spiders and their kind",
-                                                  "wounds and injuries caused by accidents or assaults and their surgical treatment and repair"
                                               ]
                     },
                     {
@@ -4541,18 +4457,6 @@
                         "type":  "multiple",
                         "difficulty":  "hard",
                         "category":  "Science",
-                        "question":  "What is the chemical calcium sulphate dihydrate often used for?",
-                        "correct_answer":  "It is used to manufacture dry wall.",
-                        "incorrect_answers":  [
-                                                  "It is used in thermometers, thermostats, barometers",
-                                                  "It is used in laundry detergent.",
-                                                  "It is used to relieve pain."
-                                              ]
-                    },
-                    {
-                        "type":  "multiple",
-                        "difficulty":  "hard",
-                        "category":  "Science",
                         "question":  "What is the word for a group of rabbits?",
                         "correct_answer":  "A nest",
                         "incorrect_answers":  [
@@ -4583,18 +4487,6 @@
                                                   "Nose",
                                                   "Mouth",
                                                   "Eyes"
-                                              ]
-                    },
-                    {
-                        "type":  "multiple",
-                        "difficulty":  "hard",
-                        "category":  "Science",
-                        "question":  "What is the chemical potassium hydrogen tartrate often used for?",
-                        "correct_answer":  "It is used in baking to stabilize egg whites.",
-                        "incorrect_answers":  [
-                                                  "It is commonly used as a condiment and food preservative.",
-                                                  "It is used in liquid fertilizers, potassium soaps and detergents.",
-                                                  "It is used in thermometers, thermostats, barometers"
                                               ]
                     },
                     {
@@ -4691,18 +4583,6 @@
                                                   "A flamingo",
                                                   "A pelican",
                                                   "An ostrich"
-                                              ]
-                    },
-                    {
-                        "type":  "multiple",
-                        "difficulty":  "hard",
-                        "category":  "Science",
-                        "question":  "What is the chemical trinitrotoluene often used for?",
-                        "correct_answer":  "It is used in used in military shells, bombs, and grenades.",
-                        "incorrect_answers":  [
-                                                  "It is used in nuclear reactors, as a neutron moderator.",
-                                                  "It is used in disinfectants and antiseptics.",
-                                                  "It is known to relieve pain and inflammation."
                                               ]
                     },
                     {
@@ -6041,18 +5921,6 @@
                         "type":  "multiple",
                         "difficulty":  "easy",
                         "category":  "Music",
-                        "question":  "Which song begins with the lyrics: \"Nants ingonyama bagithi Baba / Sithi uhm ingonyama...\"?",
-                        "correct_answer":  "\"Circle of Life\" by Elton John",
-                        "incorrect_answers":  [
-                                                  "\"SpongeBob SquarePants Theme\" by Painty the Pirate",
-                                                  "\"Let\u0027s Go Crazy\" by Prince and The Revolution",
-                                                  "\"What I Got\" by Sublime"
-                                              ]
-                    },
-                    {
-                        "type":  "multiple",
-                        "difficulty":  "easy",
-                        "category":  "Music",
                         "question":  "Which band had Freddie Mercury as its lead vocalist?",
                         "correct_answer":  "Queen",
                         "incorrect_answers":  [
@@ -6101,18 +5969,6 @@
                         "type":  "multiple",
                         "difficulty":  "easy",
                         "category":  "Music",
-                        "question":  "Which song begins with the lyrics: \"At first I was afraid, I was petrified / Kept thinking I could never live without you by my side...\"?",
-                        "correct_answer":  "\"I Will Survive\" by Gloria Gaynor",
-                        "incorrect_answers":  [
-                                                  "\"All Star\" by Smash Mouth",
-                                                  "\"Man! I Feel Like a Woman!\" by Shania Twain",
-                                                  "\"You\u0027re So Vain\" by Carly Simon"
-                                              ]
-                    },
-                    {
-                        "type":  "multiple",
-                        "difficulty":  "easy",
-                        "category":  "Music",
                         "question":  "\u0027Billie Jean\u0027 is a song by which musician?",
                         "correct_answer":  "Michael Jackson",
                         "incorrect_answers":  [
@@ -6155,18 +6011,6 @@
                                                   "The Rolling Stones",
                                                   "The Kinks",
                                                   "The Who"
-                                              ]
-                    },
-                    {
-                        "type":  "multiple",
-                        "difficulty":  "easy",
-                        "category":  "Music",
-                        "question":  "Which song begins with the lyrics: \"Coming out of my cage / And I\u0027ve been doing just fine...\"?",
-                        "correct_answer":  "\"Mr. Brightside\" by The Killers",
-                        "incorrect_answers":  [
-                                                  "\"SpongeBob SquarePants Theme\" by Painty the Pirate",
-                                                  "\"Hooked on a Feeling\" by B.J. Thomas",
-                                                  "\"Let\u0027s Go Crazy\" by Prince and The Revolution"
                                               ]
                     },
                     {
@@ -6317,18 +6161,6 @@
                         "type":  "multiple",
                         "difficulty":  "easy",
                         "category":  "Music",
-                        "question":  "Which song begins with the lyrics: \"I don\u0027t want a lot for Christmas, there is just one thing I need.\"?",
-                        "correct_answer":  "\"All I Want For Christmas Is You\" by Mariah Carey",
-                        "incorrect_answers":  [
-                                                  "\"Jumpin\u0027, Jumpin\u0027\" by Destiny\u0027s Child",
-                                                  "\"American Pie\" by Don McLean",
-                                                  "\"Let it Be\" by the Beatles"
-                                              ]
-                    },
-                    {
-                        "type":  "multiple",
-                        "difficulty":  "easy",
-                        "category":  "Music",
                         "question":  "Which American hard rock band released the song \u0027Sweet Child O\u0027 Mine\u0027?",
                         "correct_answer":  "Guns N\u0027 Roses",
                         "incorrect_answers":  [
@@ -6407,18 +6239,6 @@
                                                   "Prince",
                                                   "Stevie Wonder",
                                                   "Lionel Richie"
-                                              ]
-                    },
-                    {
-                        "type":  "multiple",
-                        "difficulty":  "easy",
-                        "category":  "Music",
-                        "question":  "Which song begins with the lyrics: \"Now this is the story all about how / My life got flipped, turned upside down...\"?",
-                        "correct_answer":  "\"Yo Home to Bel-Air\"",
-                        "incorrect_answers":  [
-                                                  "\"Bohemian Rhapsody\" by Queen",
-                                                  "\"I\u0027ll Make a Man Out of You\" by Donny Osmond",
-                                                  "\"In da Club\" by 50 Cent"
                                               ]
                     },
                     {
@@ -7205,36 +7025,12 @@
                         "type":  "multiple",
                         "difficulty":  "easy",
                         "category":  "Film \u0026 TV",
-                        "question":  "Which of these quotes is from the film \u0027Jaws\u0027?",
-                        "correct_answer":  "\"You\u0027re gonna need a bigger boat.\"",
-                        "incorrect_answers":  [
-                                                  "\"A census taker once tried to test me. I ate his liver with some fava beans and a nice Chianti.\"",
-                                                  "\"Wait a minute, wait a minute. You ain\u0027t heard nothin\u0027 yet!\"",
-                                                  "\"Mother of mercy, is this the end of Rico?\""
-                                              ]
-                    },
-                    {
-                        "type":  "multiple",
-                        "difficulty":  "easy",
-                        "category":  "Film \u0026 TV",
                         "question":  "Name the movie that matches the following plot summary: \u0027A killer shark unleashes chaos on a beach community.\u0027",
                         "correct_answer":  "Jaws",
                         "incorrect_answers":  [
                                                   "The Silence of the Lambs",
                                                   "The Good, the Bad and the Ugly",
                                                   "Platoon"
-                                              ]
-                    },
-                    {
-                        "type":  "multiple",
-                        "difficulty":  "easy",
-                        "category":  "Film \u0026 TV",
-                        "question":  "Which of these quotes is from the film \u0027Goldfinger\u0027?",
-                        "correct_answer":  "\"A martini. Shaken, not stirred.\"",
-                        "incorrect_answers":  [
-                                                  "\"Elementary, my dear Watson.\"",
-                                                  "\"Carpe diem. Seize the day, boys. Make your lives extraordinary.\"",
-                                                  "\"Go ahead, make my day.\""
                                               ]
                     },
                     {
@@ -7265,36 +7061,12 @@
                         "type":  "multiple",
                         "difficulty":  "easy",
                         "category":  "Film \u0026 TV",
-                        "question":  "Which of these quotes is from the film \u0027300\u0027?",
-                        "correct_answer":  "\"This is Sparta!\"",
-                        "incorrect_answers":  [
-                                                  "\"Elementary, my dear Watson.\"",
-                                                  "\"I have always depended on the kindness of strangers.\"",
-                                                  "\"I love the smell of napalm in the morning.\""
-                                              ]
-                    },
-                    {
-                        "type":  "multiple",
-                        "difficulty":  "easy",
-                        "category":  "Film \u0026 TV",
                         "question":  "Which actor has starred in films including Men in Black and Enemy of the State?",
                         "correct_answer":  "Will Smith",
                         "incorrect_answers":  [
                                                   "Brian Cox",
                                                   "Ralph Fiennes",
                                                   "Ryan Reynolds"
-                                              ]
-                    },
-                    {
-                        "type":  "multiple",
-                        "difficulty":  "easy",
-                        "category":  "Film \u0026 TV",
-                        "question":  "What is the plot of the movie The Wizard of Oz?",
-                        "correct_answer":  "A young girl and her dog are swept away by a tornado from their Kansas farm to a magical land.",
-                        "incorrect_answers":  [
-                                                  "A man with short-term memory loss attempts to track down his wife\u0027s murderer.",
-                                                  "The jury in a murder trial is frustrated by a member whose caution forces them to consider the evidence.",
-                                                  "A former neo-nazi tries to prevent his brother from going down the same path that he did."
                                               ]
                     },
                     {
@@ -7313,48 +7085,12 @@
                         "type":  "multiple",
                         "difficulty":  "easy",
                         "category":  "Film \u0026 TV",
-                        "question":  "Which of these quotes is from the film \u0027Forrest Gump\u0027?",
-                        "correct_answer":  "\"My mama always said life was like a box of chocolates. You never know what you\u0027re gonna get.\"",
-                        "incorrect_answers":  [
-                                                  "\"Very nice!\"",
-                                                  "\"Say hello to my little friend!\"",
-                                                  "\"Nobody makes me bleed my own blood. Nobody!\""
-                                              ]
-                    },
-                    {
-                        "type":  "multiple",
-                        "difficulty":  "easy",
-                        "category":  "Film \u0026 TV",
-                        "question":  "What is the plot of the movie Jurassic Park?",
-                        "correct_answer":  "A paleontologist is tasked with protecting two children when cloned dinosaurs are set free.",
-                        "incorrect_answers":  [
-                                                  "During WWII a Jewish waiter uses humor to protect his son from the realities of war.",
-                                                  "A maverick teacher emboldens his students to new heights of self-expression.",
-                                                  "A car salesman\u0027s inept crime falls apart due to his and his henchmen\u0027s bungling."
-                                              ]
-                    },
-                    {
-                        "type":  "multiple",
-                        "difficulty":  "easy",
-                        "category":  "Film \u0026 TV",
                         "question":  "Which actor has featured in films including Forrest Gump and Apollo 13?",
                         "correct_answer":  "Tom Hanks",
                         "incorrect_answers":  [
                                                   "Ewan McGregor",
                                                   "Will Smith",
                                                   "Tom Cruise"
-                                              ]
-                    },
-                    {
-                        "type":  "multiple",
-                        "difficulty":  "easy",
-                        "category":  "Film \u0026 TV",
-                        "question":  "Which of these quotes is from the film \u0027Chinatown\u0027?",
-                        "correct_answer":  "\"Forget it, Jake, it\u0027s Chinatown.\"",
-                        "incorrect_answers":  [
-                                                  "\"I could do this all day\"",
-                                                  "\"You shall not pass!\"",
-                                                  "\"Mother of mercy, is this the end of Rico?\""
                                               ]
                     },
                     {
@@ -7397,30 +7133,6 @@
                         "type":  "multiple",
                         "difficulty":  "easy",
                         "category":  "Film \u0026 TV",
-                        "question":  "What is the plot of the movie Alien?",
-                        "correct_answer":  "The crew of a spacecraft encounter a deadly lifeform after investigating a transmission.",
-                        "incorrect_answers":  [
-                                                  "The life of the lawyer who became the famed leader of the Indian revolts against the British rule.",
-                                                  "An insurance representative lets a housewife seduce him into a scheme of insurance fraud and murder.",
-                                                  "After the death of a tycoon, reporters scramble to uncover the meaning of his final utterance."
-                                              ]
-                    },
-                    {
-                        "type":  "multiple",
-                        "difficulty":  "easy",
-                        "category":  "Film \u0026 TV",
-                        "question":  "Which film contains the character \u0027Dr. Evil\u0027?",
-                        "correct_answer":  "Austin Powers: International Man of Mystery",
-                        "incorrect_answers":  [
-                                                  "Die Hard",
-                                                  "The Adventures of Robin Hood",
-                                                  "Pulp Fiction"
-                                              ]
-                    },
-                    {
-                        "type":  "multiple",
-                        "difficulty":  "easy",
-                        "category":  "Film \u0026 TV",
                         "question":  "What is the name of the mermaid in the Disney film The Little Mermaid?",
                         "correct_answer":  "Ariel",
                         "incorrect_answers":  [
@@ -7457,18 +7169,6 @@
                         "type":  "multiple",
                         "difficulty":  "easy",
                         "category":  "Film \u0026 TV",
-                        "question":  "What is the plot of the movie Raiders of the Lost Ark?",
-                        "correct_answer":  "An archaeologist is hired by the government to find the Ark of the Covenant.",
-                        "incorrect_answers":  [
-                                                  "On a journey to find the cure for a curse, a boy finds himself in the middle of a war.",
-                                                  "A Tramp struggles to live in modern industrial society with the help of a young homeless woman.",
-                                                  "A 12-year-old is taken in by a professional assassin after her family is murdered."
-                                              ]
-                    },
-                    {
-                        "type":  "multiple",
-                        "difficulty":  "easy",
-                        "category":  "Film \u0026 TV",
                         "question":  "Which actor played the role of The Terminator in The Terminator?",
                         "correct_answer":  "Arnold Schwarzenegger",
                         "incorrect_answers":  [
@@ -7487,18 +7187,6 @@
                                                   "Gamora",
                                                   "Valkyrie",
                                                   "Captain Marvel"
-                                              ]
-                    },
-                    {
-                        "type":  "multiple",
-                        "difficulty":  "easy",
-                        "category":  "Film \u0026 TV",
-                        "question":  "What is the plot of the movie Aladdin?",
-                        "correct_answer":  "A kindhearted street urchin and a power-hungry Grand Vizier vie for a magic lamp.",
-                        "incorrect_answers":  [
-                                                  "Simba and his father are targeted by his uncle, who wants to ascend the throne himself.",
-                                                  "Two soldiers race to deliver a message that will stop 1,600 men from walking into a deadly trap.",
-                                                  "Two grifters team up to pull off the ultimate con."
                                               ]
                     },
                     {
@@ -7535,18 +7223,6 @@
                                                   "\"Rosebud.\"",
                                                   "\"You\u0027re gonna need a bigger boat.\"",
                                                   "\"Shane. Shane. Come back!\""
-                                              ]
-                    },
-                    {
-                        "type":  "multiple",
-                        "difficulty":  "easy",
-                        "category":  "Film \u0026 TV",
-                        "question":  "Which of these quotes is from the film \u0027Finding Nemo\u0027?",
-                        "correct_answer":  "\"Just keep swimming.\"",
-                        "incorrect_answers":  [
-                                                  "\"Tell \u0027em to go out there with all they got and win just one for the Gipper.\"",
-                                                  "\"We\u0027ll always have Paris.\"",
-                                                  "\"Today, I consider myself the luckiest man on the face of the earth.\""
                                               ]
                     },
                     {
@@ -7697,30 +7373,6 @@
                         "type":  "multiple",
                         "difficulty":  "medium",
                         "category":  "Film \u0026 TV",
-                        "question":  "What is the plot of the movie 2001: A Space Odyssey?",
-                        "correct_answer":  "Monoliths discovered generations ago lead mankind on a journey to Jupiter.",
-                        "incorrect_answers":  [
-                                                  "A group of low-level criminals fight to track down a priceless stolen diamond.",
-                                                  "A screenwriter develops a relationship with a faded film star determined to make a return.",
-                                                  "The stepdaughter of a sadistic army officer escapes into an eerie fantasy world."
-                                              ]
-                    },
-                    {
-                        "type":  "multiple",
-                        "difficulty":  "medium",
-                        "category":  "Film \u0026 TV",
-                        "question":  "What is the plot of the movie Goodfellas?",
-                        "correct_answer":  "The story of a mobster, covering his relationship with his wife and his mob partners.",
-                        "incorrect_answers":  [
-                                                  "A woman works with a hardened boxing trainer to become a professional.",
-                                                  "A secretary checks into a remote motel run by a young man under the domination of his mother.",
-                                                  "In World War II a group of soldiers go behind enemy lines to rescue a paratrooper."
-                                              ]
-                    },
-                    {
-                        "type":  "multiple",
-                        "difficulty":  "medium",
-                        "category":  "Film \u0026 TV",
                         "question":  "Which of these is a movie directed by Alfred Hitchcock?",
                         "correct_answer":  "Vertigo",
                         "incorrect_answers":  [
@@ -7763,18 +7415,6 @@
                                                   "Don Cheadle",
                                                   "Benedict Wong",
                                                   "Chris Hemsworth"
-                                              ]
-                    },
-                    {
-                        "type":  "multiple",
-                        "difficulty":  "medium",
-                        "category":  "Film \u0026 TV",
-                        "question":  "What is the plot of the movie A Beautiful Mind?",
-                        "correct_answer":  "After a mathematician accepts secret work in cryptography, his life takes a turn for the nightmarish.",
-                        "incorrect_answers":  [
-                                                  "POWs are forced to build a railway, not knowing that allies are planning to destroy it.",
-                                                  "The final secretary for Adolf Hitler tells of the Nazi dictator\u0027s final days.",
-                                                  "The son of a former boxer is trained by his father for a mixed martial arts tournament."
                                               ]
                     },
                     {
@@ -7889,18 +7529,6 @@
                         "type":  "multiple",
                         "difficulty":  "medium",
                         "category":  "Film \u0026 TV",
-                        "question":  "Which of these quotes is from the film \u0027Shutter Island\u0027?",
-                        "correct_answer":  "\"Which would be worse, to live a monster or die as a good man?\"",
-                        "incorrect_answers":  [
-                                                  "\"Release the Kraken!\"",
-                                                  "\"A martini. Shaken, not stirred.\"",
-                                                  "\"I want to be alone.\""
-                                              ]
-                    },
-                    {
-                        "type":  "multiple",
-                        "difficulty":  "medium",
-                        "category":  "Film \u0026 TV",
                         "question":  "Which actor played the role of Jack Torrance in The Shining?",
                         "correct_answer":  "Jack Nicholson",
                         "incorrect_answers":  [
@@ -7943,18 +7571,6 @@
                                                   "1988",
                                                   "1996",
                                                   "2000"
-                                              ]
-                    },
-                    {
-                        "type":  "multiple",
-                        "difficulty":  "medium",
-                        "category":  "Film \u0026 TV",
-                        "question":  "What is the plot of the movie Some Like It Hot?",
-                        "correct_answer":  "After two male musicians witness a murder, they flee in an all-female band disguised as women.",
-                        "incorrect_answers":  [
-                                                  "A high school student is sent thirty years into the past in a time-traveling car.",
-                                                  "A freed slave sets out to rescue his wife from a brutal plantation-owner.",
-                                                  "A girl with her own sense of justice decides to help those around her and discovers love."
                                               ]
                     },
                     {
@@ -8069,18 +7685,6 @@
                         "type":  "multiple",
                         "difficulty":  "medium",
                         "category":  "Film \u0026 TV",
-                        "question":  "Which of these quotes is from the film \u0027Inglourious Basterds\u0027?",
-                        "correct_answer":  "\"That’s a bingo!\"",
-                        "incorrect_answers":  [
-                                                  "\"Hello, gorgeous.\"",
-                                                  "\"Cinderella story. Outta nowhere. A former greenskeeper, now, about to become the Masters champion. It looks like a mirac...It\u0027s in the hole! It\u0027s in the hole! It\u0027s in the hole!\"",
-                                                  "\"Soylent Green is people!\""
-                                              ]
-                    },
-                    {
-                        "type":  "multiple",
-                        "difficulty":  "medium",
-                        "category":  "Film \u0026 TV",
                         "question":  "Which actor played the role of Tony Montana in Scarface?",
                         "correct_answer":  "Al Pacino",
                         "incorrect_answers":  [
@@ -8099,18 +7703,6 @@
                                                   "Russell Crowe",
                                                   "Jean-Claude Van Damme",
                                                   "John Turturro"
-                                              ]
-                    },
-                    {
-                        "type":  "multiple",
-                        "difficulty":  "hard",
-                        "category":  "Film \u0026 TV",
-                        "question":  "Which of these quotes is from the film \u0027The Jazz Singer\u0027?",
-                        "correct_answer":  "\"Wait a minute, wait a minute. You ain\u0027t heard nothin\u0027 yet!\"",
-                        "incorrect_answers":  [
-                                                  "\"I am a golden god!\"",
-                                                  "\"You had me at hello.\"",
-                                                  "\"Gentlemen, you can\u0027t fight in here! This is the War Room!\""
                                               ]
                     },
                     {
@@ -8297,48 +7889,12 @@
                         "type":  "multiple",
                         "difficulty":  "hard",
                         "category":  "Film \u0026 TV",
-                        "question":  "Which of these quotes is from the film \u0027The Departed\u0027?",
-                        "correct_answer":  "\"I’m the guy who does his job. You must be the other guy.\"",
-                        "incorrect_answers":  [
-                                                  "\"You motorboatin’ son of a b****!\"",
-                                                  "\"I am big! It\u0027s the pictures that got small.\"",
-                                                  "\"I\u0027m gonna make him an offer he can\u0027t refuse.\""
-                                              ]
-                    },
-                    {
-                        "type":  "multiple",
-                        "difficulty":  "hard",
-                        "category":  "Film \u0026 TV",
                         "question":  "Which actress played the role of Mrs. Iselin in The Manchurian Candidate?",
                         "correct_answer":  "Angela Lansbury",
                         "incorrect_answers":  [
                                                   "Anne Bancroft",
                                                   "Katharine Hepburn",
                                                   "Holly Hunter"
-                                              ]
-                    },
-                    {
-                        "type":  "multiple",
-                        "difficulty":  "hard",
-                        "category":  "Film \u0026 TV",
-                        "question":  "What is the plot of the movie Into the Wild?",
-                        "correct_answer":  "After graduating, a student gives his entire savings to charity and hitchhikes to Alaska.",
-                        "incorrect_answers":  [
-                                                  "A detective hired to expose an adulterer finds himself caught up in a web of deceit.",
-                                                  "A general accuses soldiers of cowardice and their commanding officer must defend them.",
-                                                  "A former neo-nazi tries to prevent his brother from going down the same path that he did."
-                                              ]
-                    },
-                    {
-                        "type":  "multiple",
-                        "difficulty":  "hard",
-                        "category":  "Film \u0026 TV",
-                        "question":  "Which of these quotes is from the film \u0027Cool Hand Luke\u0027?",
-                        "correct_answer":  "\"What we\u0027ve got here is failure to communicate.\"",
-                        "incorrect_answers":  [
-                                                  "\"Bond. James Bond.\"",
-                                                  "\"That’s a bingo!\"",
-                                                  "\"With great power comes great responsiblity.\""
                                               ]
                     },
                     {
@@ -8537,18 +8093,6 @@
                         "type":  "multiple",
                         "difficulty":  "easy",
                         "category":  "Arts \u0026 Literature",
-                        "question":  "Which piece of written work starts with the line \u0027Aragorn sped on up the hill.\u0027?",
-                        "correct_answer":  "The Two Towers",
-                        "incorrect_answers":  [
-                                                  "Life, the Universe and Everything",
-                                                  "The Mysterious Island",
-                                                  "A Connecticut Yankee in King Arthur\u0027s Court"
-                                              ]
-                    },
-                    {
-                        "type":  "multiple",
-                        "difficulty":  "easy",
-                        "category":  "Arts \u0026 Literature",
                         "question":  "Which author wrote \u0027Great Expectations\u0027?",
                         "correct_answer":  "Charles Dickens",
                         "incorrect_answers":  [
@@ -8603,18 +8147,6 @@
                                                   "Juliet",
                                                   "Hamlet",
                                                   "Paris"
-                                              ]
-                    },
-                    {
-                        "type":  "multiple",
-                        "difficulty":  "easy",
-                        "category":  "Arts \u0026 Literature",
-                        "question":  "Which piece of written work starts with the line \u0027Two households, both alike in dignity, in fair Verona, where we lay our scene, from ancient grudge break to new mutiny, where civil blood makes civil hands unclean.\u0027?",
-                        "correct_answer":  "Romeo and Juliet",
-                        "incorrect_answers":  [
-                                                  "The Great Gatsby",
-                                                  "Eine Geschichte des Universums in 100 Sternen",
-                                                  "Madame Bovary"
                                               ]
                     },
                     {
@@ -8819,18 +8351,6 @@
                                                   "Charlotte\u0027s Web",
                                                   "Alice\u0027s Adventures in Wonderland",
                                                   "Bluebeard"
-                                              ]
-                    },
-                    {
-                        "type":  "multiple",
-                        "difficulty":  "medium",
-                        "category":  "Arts \u0026 Literature",
-                        "question":  "Which piece of written work starts with the line \u0027“What\u0027s it going to be then, eh?” There was me, that is Alex, and my three droogs, that is Pete, Georgie, and Dim, Dim being really dim, and we sat in the Korova Milkbar making up our rassoodocks what to do with the evening, a flip dark chill winter bastard though dry.\u0027?",
-                        "correct_answer":  "A Clockwork Orange",
-                        "incorrect_answers":  [
-                                                  "Do Androids Dream of Electric Sheep?",
-                                                  "Slaughterhouse-Five",
-                                                  "We"
                                               ]
                     },
                     {
@@ -9071,18 +8591,6 @@
                                                   "Impressionism",
                                                   "Primitivism",
                                                   "Fauvism"
-                                              ]
-                    },
-                    {
-                        "type":  "multiple",
-                        "difficulty":  "medium",
-                        "category":  "Arts \u0026 Literature",
-                        "question":  "In Harry Potter, what is the name of the wizarding school that Harry attends?",
-                        "correct_answer":  "Hogwarts School of Witchcraft and Wizardry",
-                        "incorrect_answers":  [
-                                                  "Ilvermorny School of Witchcraft and Wizardry",
-                                                  "Durmstrang Institute of Magic",
-                                                  "Beauxbatons Academy of Magic"
                                               ]
                     },
                     {
@@ -9737,18 +9245,6 @@
                         "type":  "multiple",
                         "difficulty":  "easy",
                         "category":  "Society \u0026 Culture",
-                        "question":  "Which of the following describes Genghis Kahn?",
-                        "correct_answer":  "Military and political leader of the Mongols.",
-                        "incorrect_answers":  [
-                                                  "Engineer who helped develop radio transmission.",
-                                                  "Political philosopher who promoted a theory of liberal democracy and a social contract.",
-                                                  "Inventor of the printing press."
-                                              ]
-                    },
-                    {
-                        "type":  "multiple",
-                        "difficulty":  "easy",
-                        "category":  "Society \u0026 Culture",
                         "question":  "What is the official language of Israel?",
                         "correct_answer":  "Hebrew",
                         "incorrect_answers":  [
@@ -9899,18 +9395,6 @@
                                                   "Kabuki",
                                                   "Kintsugi",
                                                   "Kokeshi"
-                                              ]
-                    },
-                    {
-                        "type":  "multiple",
-                        "difficulty":  "easy",
-                        "category":  "Society \u0026 Culture",
-                        "question":  "Which of the following describes Adolf Hitler?",
-                        "correct_answer":  "Dictator of Nazi Germany.",
-                        "incorrect_answers":  [
-                                                  "One of the pioneers of Quantum mechanics",
-                                                  "Roman Emperor who accepted the Christian religion.",
-                                                  "Physicist who discovered X-rays."
                                               ]
                     },
                     {
@@ -10145,36 +9629,12 @@
                         "type":  "multiple",
                         "difficulty":  "medium",
                         "category":  "Society \u0026 Culture",
-                        "question":  "Which of the following describes Michelangelo?",
-                        "correct_answer":  "Renaissance sculptor, painter and architect",
-                        "incorrect_answers":  [
-                                                  "Founder of Manichaeism, a gnostic religion which for a time was a rival to Christianity.",
-                                                  "Inventor and businessman who helped introduce electricity and electric light bulbs.",
-                                                  "Industrialist who revolutionised mass-production techniques"
-                                              ]
-                    },
-                    {
-                        "type":  "multiple",
-                        "difficulty":  "medium",
-                        "category":  "Society \u0026 Culture",
                         "question":  "What is the marketing slogan of Audi?",
                         "correct_answer":  "Advancement Through Technology",
                         "incorrect_answers":  [
                                                   "Grace, Space, Pace.",
                                                   "There is no substitute",
                                                   "Think Small"
-                                              ]
-                    },
-                    {
-                        "type":  "multiple",
-                        "difficulty":  "medium",
-                        "category":  "Society \u0026 Culture",
-                        "question":  "Which of the following describes Asoka?",
-                        "correct_answer":  "Powerful Indian King who established a large empire by conquest before converting to Buddhism.",
-                        "incorrect_answers":  [
-                                                  "Queen of England from 1558 to her death in 1603. Cemented England as a Protestant country, defeated Spanish Armada.",
-                                                  "Explorer, first European to reach India and establish a route for imperialism.",
-                                                  "Spiritual Teacher and founder of Buddhism."
                                               ]
                     },
                     {
@@ -11999,6 +11459,546 @@
                                                   "Fudge",
                                                   "Cheese",
                                                   "Cream"
+                                              ]
+                    },
+                    {
+                        "type":  "multiple",
+                        "difficulty":  "easy",
+                        "category":  "Geography",
+                        "question":  "Which of these structures stretches for over 4,000 miles, often called the largest building project ever completed?",
+                        "correct_answer":  "The Great Wall of China",
+                        "incorrect_answers":  [
+                                                  "The Panama Canal",
+                                                  "The Golden Gate Bridge",
+                                                  "The Hoover Dam"
+                                              ]
+                    },
+                    {
+                        "type":  "multiple",
+                        "difficulty":  "medium",
+                        "category":  "Geography",
+                        "question":  "Which of these colors is included on the flag of Ukraine?",
+                        "correct_answer":  "Blue",
+                        "incorrect_answers":  [
+                                                  "Black",
+                                                  "Orange",
+                                                  "White"
+                                              ]
+                    },
+                    {
+                        "type":  "multiple",
+                        "difficulty":  "medium",
+                        "category":  "History",
+                        "question":  "Who was the founder and first President of the Republic of Turkey?",
+                        "correct_answer":  "Mustafa Kemal Atatürk",
+                        "incorrect_answers":  [
+                                                  "Suleiman the Magnificent",
+                                                  "Mehmed the Conqueror",
+                                                  "Osman I"
+                                              ]
+                    },
+                    {
+                        "type":  "multiple",
+                        "difficulty":  "medium",
+                        "category":  "Science",
+                        "question":  "What is a Salamander ?",
+                        "correct_answer":  "Amphibian",
+                        "incorrect_answers":  [
+                                                  "Reptile",
+                                                  "Fish",
+                                                  "Mollusc"
+                                              ]
+                    },
+                    {
+                        "type":  "multiple",
+                        "difficulty":  "medium",
+                        "category":  "Science",
+                        "question":  "According to Boyle\u0027s Law, what increases when a gas is compressed to half its size?",
+                        "correct_answer":  "Pressure",
+                        "incorrect_answers":  [
+                                                  "Volume",
+                                                  "Luminescence",
+                                                  "Temperature"
+                                              ]
+                    },
+                    {
+                        "type":  "multiple",
+                        "difficulty":  "medium",
+                        "category":  "Science",
+                        "question":  "What is the medical name for the collarbone?",
+                        "correct_answer":  "Clavicle",
+                        "incorrect_answers":  [
+                                                  "Femur",
+                                                  "Ulna",
+                                                  "Humerus"
+                                              ]
+                    },
+                    {
+                        "type":  "multiple",
+                        "difficulty":  "medium",
+                        "category":  "Science",
+                        "question":  "What is the chemical formula for deuterium oxide?",
+                        "correct_answer":  "D2O",
+                        "incorrect_answers":  [
+                                                  "N2O",
+                                                  "KNO3",
+                                                  "Fe2O3"
+                                              ]
+                    },
+                    {
+                        "type":  "multiple",
+                        "difficulty":  "hard",
+                        "category":  "Science",
+                        "question":  "How do procumbent plants grow?",
+                        "correct_answer":  "They spread overground",
+                        "incorrect_answers":  [
+                                                  "Underwater",
+                                                  "They climb up vertical surfaces",
+                                                  "They cling to animals"
+                                              ]
+                    },
+                    {
+                        "type":  "multiple",
+                        "difficulty":  "hard",
+                        "category":  "Science",
+                        "question":  "What is desmology the study of?",
+                        "correct_answer":  "Ligaments",
+                        "incorrect_answers":  [
+                                                  "Things which cannot be known",
+                                                  "Butterflies and moths",
+                                                  "Ants"
+                                              ]
+                    },
+                    {
+                        "type":  "multiple",
+                        "difficulty":  "hard",
+                        "category":  "Science",
+                        "question":  "In which organ is bile produced?",
+                        "correct_answer":  "Liver",
+                        "incorrect_answers":  [
+                                                  "Bladder",
+                                                  "Heart",
+                                                  "Kidney"
+                                              ]
+                    },
+                    {
+                        "type":  "multiple",
+                        "difficulty":  "easy",
+                        "category":  "Music",
+                        "question":  "Which band did Harry Styles start his career with?",
+                        "correct_answer":  "One Direction",
+                        "incorrect_answers":  [
+                                                  "Boyzone",
+                                                  "Backstreet Boys",
+                                                  "Blur"
+                                              ]
+                    },
+                    {
+                        "type":  "multiple",
+                        "difficulty":  "easy",
+                        "category":  "Music",
+                        "question":  "What type of instrument is a guitar?",
+                        "correct_answer":  "Stringed",
+                        "incorrect_answers":  [
+                                                  "Brass",
+                                                  "Percussion",
+                                                  "Woodwind"
+                                              ]
+                    },
+                    {
+                        "type":  "multiple",
+                        "difficulty":  "easy",
+                        "category":  "Music",
+                        "question":  "Which American music duo released the song \u0027Mrs. Robinson\u0027?",
+                        "correct_answer":  "Simon \u0026 Garfunkel",
+                        "incorrect_answers":  [
+                                                  "The Everly Brothers",
+                                                  "The Righteous Brothers",
+                                                  "Hall \u0026 Oates"
+                                              ]
+                    },
+                    {
+                        "type":  "multiple",
+                        "difficulty":  "easy",
+                        "category":  "Music",
+                        "question":  "Which English rock band released the song \u0027I Want to Hold Your Hand\u0027?",
+                        "correct_answer":  "The Beatles",
+                        "incorrect_answers":  [
+                                                  "The Rolling Stones",
+                                                  "The Kinks",
+                                                  "The Who"
+                                              ]
+                    },
+                    {
+                        "type":  "multiple",
+                        "difficulty":  "easy",
+                        "category":  "Music",
+                        "question":  "Which Swedish pop group released the song \u0027Thank You for the Music\u0027?",
+                        "correct_answer":  "ABBA",
+                        "incorrect_answers":  [
+                                                  "In Flames",
+                                                  "HammerFall",
+                                                  "Katatonia"
+                                              ]
+                    },
+                    {
+                        "type":  "multiple",
+                        "difficulty":  "easy",
+                        "category":  "Film \u0026 TV",
+                        "question":  "Who played the role of James Bond in Casino Royale?",
+                        "correct_answer":  "Daniel Craig",
+                        "incorrect_answers":  [
+                                                  "George Lazenby",
+                                                  "Roger Moore",
+                                                  "Sean Connery"
+                                              ]
+                    },
+                    {
+                        "type":  "multiple",
+                        "difficulty":  "easy",
+                        "category":  "Film \u0026 TV",
+                        "question":  "In 2009, which world leader was portrayed on-screen by Morgan Freeman?",
+                        "correct_answer":  "Nelson Mandela",
+                        "incorrect_answers":  [
+                                                  "Barack Obama",
+                                                  "Mahatma Gandhi",
+                                                  "Winston Churchill"
+                                              ]
+                    },
+                    {
+                        "type":  "multiple",
+                        "difficulty":  "easy",
+                        "category":  "Film \u0026 TV",
+                        "question":  "Which of these quotes is from the film \u0027Borat\u0027?",
+                        "correct_answer":  "\"Very nice!\"",
+                        "incorrect_answers":  [
+                                                  "\"I\u0027m walking here! I\u0027m walking here!\"",
+                                                  "\"The stuff that dreams are made of.\"",
+                                                  "\"A martini. Shaken, not stirred.\""
+                                              ]
+                    },
+                    {
+                        "type":  "multiple",
+                        "difficulty":  "easy",
+                        "category":  "Film \u0026 TV",
+                        "question":  "Which actor originally played the role of Han Solo in Star Wars?",
+                        "correct_answer":  "Harrison Ford",
+                        "incorrect_answers":  [
+                                                  "Mark Hamill",
+                                                  "Brad Pitt",
+                                                  "Pedro Pascal"
+                                              ]
+                    },
+                    {
+                        "type":  "multiple",
+                        "difficulty":  "easy",
+                        "category":  "Film \u0026 TV",
+                        "question":  "Which of these quotes is from the film \u0027Frankenstein\u0027?",
+                        "correct_answer":  "\"It\u0027s alive! It\u0027s alive!\"",
+                        "incorrect_answers":  [
+                                                  "\"Stella! Hey, Stella!\"",
+                                                  "\"My precious...\"",
+                                                  "\"I\u0027m walkin\u0027 here!\""
+                                              ]
+                    },
+                    {
+                        "type":  "multiple",
+                        "difficulty":  "easy",
+                        "category":  "Film \u0026 TV",
+                        "question":  "Who won the 1994 Academy Award for Best Leading Actor for playing the role of Forrest Gump in Forrest Gump?",
+                        "correct_answer":  "Tom Hanks",
+                        "incorrect_answers":  [
+                                                  "Morgan Freeman",
+                                                  "Nigel Hawthorne",
+                                                  "Paul Newman"
+                                              ]
+                    },
+                    {
+                        "type":  "multiple",
+                        "difficulty":  "easy",
+                        "category":  "Film \u0026 TV",
+                        "question":  "Which actor has featured in films including The Good, the Bad and the Ugly and Million Dollar Baby?",
+                        "correct_answer":  "Clint Eastwood",
+                        "incorrect_answers":  [
+                                                  "Matt Damon",
+                                                  "Robert De Niro",
+                                                  "Sean Connery"
+                                              ]
+                    },
+                    {
+                        "type":  "multiple",
+                        "difficulty":  "easy",
+                        "category":  "Film \u0026 TV",
+                        "question":  "Which actor plays the role of Dr Strange in the Marvel Cinematic Universe?",
+                        "correct_answer":  "Benedict Cumberbatch",
+                        "incorrect_answers":  [
+                                                  "Jeff Goldblum",
+                                                  "J.K. Simmons",
+                                                  "Michael Douglas"
+                                              ]
+                    },
+                    {
+                        "type":  "multiple",
+                        "difficulty":  "easy",
+                        "category":  "Film \u0026 TV",
+                        "question":  "Which actor played Batman in the Dark Knight trilogy?",
+                        "correct_answer":  "Christian Bale",
+                        "incorrect_answers":  [
+                                                  "Keanu Reeves",
+                                                  "Dan Aykroyd",
+                                                  "Donald Sutherland"
+                                              ]
+                    },
+                    {
+                        "type":  "multiple",
+                        "difficulty":  "easy",
+                        "category":  "Film \u0026 TV",
+                        "question":  "In which iconic \u002790s film did Leonardo DiCaprio play the role of Jack Dawson?",
+                        "correct_answer":  "Titanic",
+                        "incorrect_answers":  [
+                                                  "Romeo + Juliet",
+                                                  "The Beach",
+                                                  "The Great Gatsby"
+                                              ]
+                    },
+                    {
+                        "type":  "multiple",
+                        "difficulty":  "easy",
+                        "category":  "Film \u0026 TV",
+                        "question":  "In what movie does the main character have a friend called Bubba Blue who dreams of opening up his own shrimping business?",
+                        "correct_answer":  "Forrest Gump",
+                        "incorrect_answers":  [
+                                                  "Rocky",
+                                                  "Scarface",
+                                                  "Indiana Jones"
+                                              ]
+                    },
+                    {
+                        "type":  "multiple",
+                        "difficulty":  "easy",
+                        "category":  "Film \u0026 TV",
+                        "question":  "In the Marvel Cinematic Universe, which character is played by Tom Holland?",
+                        "correct_answer":  "Spiderman",
+                        "incorrect_answers":  [
+                                                  "Obadiah Stane",
+                                                  "Iron Man",
+                                                  "Hawkeye"
+                                              ]
+                    },
+                    {
+                        "type":  "multiple",
+                        "difficulty":  "medium",
+                        "category":  "Film \u0026 TV",
+                        "question":  "Which director directed The Lord of the Rings: The Fellowship of the Ring?",
+                        "correct_answer":  "Peter Jackson",
+                        "incorrect_answers":  [
+                                                  "Steven Spielberg",
+                                                  "Woody Allen",
+                                                  "Martin Scorsese"
+                                              ]
+                    },
+                    {
+                        "type":  "multiple",
+                        "difficulty":  "medium",
+                        "category":  "Film \u0026 TV",
+                        "question":  "Who won the 2018 Academy Award for Best Supporting Actor for playing the role of Dr. Donald Shirley in Green Book?",
+                        "correct_answer":  "Mahershala Ali",
+                        "incorrect_answers":  [
+                                                  "Adam Driver",
+                                                  "Sam Elliott",
+                                                  "Richard E. Grant"
+                                              ]
+                    },
+                    {
+                        "type":  "multiple",
+                        "difficulty":  "medium",
+                        "category":  "Film \u0026 TV",
+                        "question":  "Which actor played the role of Vito Corleone in The Godfather?",
+                        "correct_answer":  "Marlon Brando",
+                        "incorrect_answers":  [
+                                                  "Robert Shaw",
+                                                  "Glenn Close",
+                                                  "Samuel L. Jackson"
+                                              ]
+                    },
+                    {
+                        "type":  "multiple",
+                        "difficulty":  "medium",
+                        "category":  "Film \u0026 TV",
+                        "question":  "Which actress starred in films including My Fair Lady and Roman Holiday?",
+                        "correct_answer":  "Audrey Hepburn",
+                        "incorrect_answers":  [
+                                                  "Bette Davis",
+                                                  "Catherine Deneuve",
+                                                  "Selena Gomez"
+                                              ]
+                    },
+                    {
+                        "type":  "multiple",
+                        "difficulty":  "medium",
+                        "category":  "Film \u0026 TV",
+                        "question":  "Which actor played the role of Saruman in The Lord of the Rings?",
+                        "correct_answer":  "Christopher Lee",
+                        "incorrect_answers":  [
+                                                  "Patrick Stewart",
+                                                  "Ian McKellen",
+                                                  "Anthony Hopkins"
+                                              ]
+                    },
+                    {
+                        "type":  "multiple",
+                        "difficulty":  "medium",
+                        "category":  "Film \u0026 TV",
+                        "question":  "Which Hollywood actor has featured in TV shows including The Sopranos and Boardwalk Empire?",
+                        "correct_answer":  "Steve Buscemi",
+                        "incorrect_answers":  [
+                                                  "Christopher Lee",
+                                                  "Arnold Schwarzenegger",
+                                                  "Anthony Hopkins"
+                                              ]
+                    },
+                    {
+                        "type":  "multiple",
+                        "difficulty":  "hard",
+                        "category":  "Film \u0026 TV",
+                        "question":  "Which actor played the role of Ratso Rizzo in Midnight Cowboy?",
+                        "correct_answer":  "Dustin Hoffman",
+                        "incorrect_answers":  [
+                                                  "Dennis Hopper",
+                                                  "Malcolm McDowell",
+                                                  "Al Pacino"
+                                              ]
+                    },
+                    {
+                        "type":  "multiple",
+                        "difficulty":  "hard",
+                        "category":  "Film \u0026 TV",
+                        "question":  "What kind of creature is Spongebob Squarepants\u0027 friend Sandy?",
+                        "correct_answer":  "A Squirrel",
+                        "incorrect_answers":  [
+                                                  "A Starfish",
+                                                  "An Octopus",
+                                                  "A Crab"
+                                              ]
+                    },
+                    {
+                        "type":  "multiple",
+                        "difficulty":  "hard",
+                        "category":  "Film \u0026 TV",
+                        "question":  "Which film contains the character \u0027Howard Beale\u0027?",
+                        "correct_answer":  "Network",
+                        "incorrect_answers":  [
+                                                  "Say Anything...",
+                                                  "The Lord of the Rings",
+                                                  "Taxi Driver"
+                                              ]
+                    },
+                    {
+                        "type":  "multiple",
+                        "difficulty":  "hard",
+                        "category":  "Film \u0026 TV",
+                        "question":  "Which actor has had roles in films including Batman v Superman: Dawn of Justice and The Untouchables?",
+                        "correct_answer":  "Kevin Costner",
+                        "incorrect_answers":  [
+                                                  "Dwayne Johnson",
+                                                  "Shah Rukh Khan",
+                                                  "Gérard Depardieu"
+                                              ]
+                    },
+                    {
+                        "type":  "multiple",
+                        "difficulty":  "easy",
+                        "category":  "Arts \u0026 Literature",
+                        "question":  "Kabuki theatre originated in which country?",
+                        "correct_answer":  "Japan",
+                        "incorrect_answers":  [
+                                                  "China",
+                                                  "Korea",
+                                                  "Thailand"
+                                              ]
+                    },
+                    {
+                        "type":  "multiple",
+                        "difficulty":  "easy",
+                        "category":  "Arts \u0026 Literature",
+                        "question":  "Which design style prevalent during the 1920s and 1930s was characterized by a sleek use of straight lines and slender forms?",
+                        "correct_answer":  "Art deco",
+                        "incorrect_answers":  [
+                                                  "Cubism",
+                                                  "Surrealism",
+                                                  "Dadaism"
+                                              ]
+                    },
+                    {
+                        "type":  "multiple",
+                        "difficulty":  "medium",
+                        "category":  "Arts \u0026 Literature",
+                        "question":  "Which setting would photographers adjust to prevent fast moving targets becoming blurred?",
+                        "correct_answer":  "Shutter speed",
+                        "incorrect_answers":  [
+                                                  "Focal length",
+                                                  "Aperture",
+                                                  "ISO settings"
+                                              ]
+                    },
+                    {
+                        "type":  "multiple",
+                        "difficulty":  "medium",
+                        "category":  "Arts \u0026 Literature",
+                        "question":  "Which author wrote \u0027The Great Gatsby\u0027?",
+                        "correct_answer":  "F. Scott Fitzgerald",
+                        "incorrect_answers":  [
+                                                  "Robert A. Heinlein",
+                                                  "James Fenimore Cooper",
+                                                  "Donna Leon"
+                                              ]
+                    },
+                    {
+                        "type":  "multiple",
+                        "difficulty":  "easy",
+                        "category":  "Society \u0026 Culture",
+                        "question":  "The 911 is a model of car made by which manufacturer?",
+                        "correct_answer":  "Porsche",
+                        "incorrect_answers":  [
+                                                  "Volkswagen",
+                                                  "Rolls-Royce",
+                                                  "Citroën"
+                                              ]
+                    },
+                    {
+                        "type":  "multiple",
+                        "difficulty":  "easy",
+                        "category":  "Society \u0026 Culture",
+                        "question":  "What is the marketing slogan of Mastercard?",
+                        "correct_answer":  "There are some things money can\u0027t buy",
+                        "incorrect_answers":  [
+                                                  "Everywhere you want to be",
+                                                  "Because Change Happens",
+                                                  "The World\u0027s Local Bank"
+                                              ]
+                    },
+                    {
+                        "type":  "multiple",
+                        "difficulty":  "medium",
+                        "category":  "Society \u0026 Culture",
+                        "question":  "Which sports brand is associated with the marketing slogan \u0027Impossible is Nothing\u0027?",
+                        "correct_answer":  "Adidas",
+                        "incorrect_answers":  [
+                                                  "Nike",
+                                                  "Puma",
+                                                  "Reebok"
+                                              ]
+                    },
+                    {
+                        "type":  "multiple",
+                        "difficulty":  "medium",
+                        "category":  "Society \u0026 Culture",
+                        "question":  "In Norse mythology, which type of fierce animal are Skoll and Fenrir?",
+                        "correct_answer":  "Wolves",
+                        "incorrect_answers":  [
+                                                  "Lions",
+                                                  "Bears",
+                                                  "Tigers"
                                               ]
                     }
                 ]
