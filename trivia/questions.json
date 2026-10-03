@@ -1,0 +1,261 @@
+{
+  "response_code": 0,
+  "results": [
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science &amp; Nature",
+      "question": "Which planet is called the &quot;Red Planet&quot;?",
+      "correct_answer": "Mars",
+      "incorrect_answers": ["Venus", "Jupiter", "Mercury"]
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "General Knowledge",
+      "question": "How many sides does a triangle have?",
+      "correct_answer": "3",
+      "incorrect_answers": ["2", "4", "5"]
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science &amp; Nature",
+      "question": "Which gas do plants absorb from the air?",
+      "correct_answer": "Carbon dioxide",
+      "incorrect_answers": ["Oxygen", "Nitrogen", "Hydrogen"]
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Geography",
+      "question": "What is the capital of Japan?",
+      "correct_answer": "Tokyo",
+      "incorrect_answers": ["Kyoto", "Osaka", "Nagoya"]
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Geography",
+      "question": "What is Earth's largest ocean?",
+      "correct_answer": "Pacific Ocean",
+      "incorrect_answers": ["Atlantic Ocean", "Indian Ocean", "Arctic Ocean"]
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science &amp; Nature",
+      "question": "How many legs does a spider have?",
+      "correct_answer": "8",
+      "incorrect_answers": ["6", "10", "12"]
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science &amp; Nature",
+      "question": "At what Celsius temperature does water freeze?",
+      "correct_answer": "0 degrees",
+      "incorrect_answers": ["10 degrees", "32 degrees", "100 degrees"]
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science &amp; Nature",
+      "question": "What instrument measures temperature?",
+      "correct_answer": "Thermometer",
+      "incorrect_answers": ["Barometer", "Compass", "Altimeter"]
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Science &amp; Nature",
+      "question": "What is the chemical formula for water?",
+      "correct_answer": "H2O",
+      "incorrect_answers": ["CO2", "O2", "NaCl"]
+    },
+    {
+      "type": "multiple",
+      "difficulty": "easy",
+      "category": "Animals",
+      "question": "Which farm animal is known for saying &quot;moo&quot;?",
+      "correct_answer": "Cow",
+      "incorrect_answers": ["Sheep", "Horse", "Goat"]
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Art",
+      "question": "Who painted the Mona Lisa?",
+      "correct_answer": "Leonardo da Vinci",
+      "incorrect_answers": ["Michelangelo", "Raphael", "Titian"]
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science &amp; Nature",
+      "question": "Which element has the chemical symbol Fe?",
+      "correct_answer": "Iron",
+      "incorrect_answers": ["Fluorine", "Francium", "Fermium"]
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "History",
+      "question": "Which country gifted the Statue of Liberty to the US?",
+      "correct_answer": "France",
+      "incorrect_answers": ["Spain", "Italy", "Canada"]
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science &amp; Nature",
+      "question": "How many bones are in a typical adult human body?",
+      "correct_answer": "206",
+      "incorrect_answers": ["186", "196", "216"]
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Geography",
+      "question": "What is Japan&rsquo;s currency?",
+      "correct_answer": "Yen",
+      "incorrect_answers": ["Won", "Yuan", "Rupee"]
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science &amp; Nature",
+      "question": "Which organ pumps blood through the body?",
+      "correct_answer": "Heart",
+      "incorrect_answers": ["Liver", "Lung", "Kidney"]
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Science &amp; Nature",
+      "question": "What is the closest star to Earth?",
+      "correct_answer": "Sun",
+      "incorrect_answers": ["Sirius", "Proxima Centauri", "Vega"]
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Literature",
+      "question": "Who wrote &quot;Pride and Prejudice&quot;?",
+      "correct_answer": "Jane Austen",
+      "incorrect_answers": ["Emily Bronte", "Mary Shelley", "George Eliot"]
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Geography",
+      "question": "What is the largest hot desert on Earth?",
+      "correct_answer": "Sahara Desert",
+      "incorrect_answers": ["Gobi Desert", "Arabian Desert", "Kalahari Desert"]
+    },
+    {
+      "type": "multiple",
+      "difficulty": "medium",
+      "category": "Geography",
+      "question": "What is the official language of Brazil?",
+      "correct_answer": "Portuguese",
+      "incorrect_answers": ["Spanish", "French", "Italian"]
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science &amp; Nature",
+      "question": "Which mathematician is known as the founder of set theory?",
+      "correct_answer": "Georg Cantor",
+      "incorrect_answers": ["David Hilbert", "Kurt G&ouml;del", "Bertrand Russell"]
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science &amp; Nature",
+      "question": "Which mammal can truly fly using powered flight?",
+      "correct_answer": "Bat",
+      "incorrect_answers": ["Flying squirrel", "Sugar glider", "Colugo"]
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "History",
+      "question": "Which city hosted the first modern Olympic Games in 1896?",
+      "correct_answer": "Athens",
+      "incorrect_answers": ["Paris", "London", "Rome"]
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science &amp; Nature",
+      "question": "What is the SI unit of electrical capacitance?",
+      "correct_answer": "Farad",
+      "incorrect_answers": ["Henry", "Tesla", "Weber"]
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Music",
+      "question": "Who composed &quot;The Four Seasons&quot;?",
+      "correct_answer": "Antonio Vivaldi",
+      "incorrect_answers": ["Johann Bach", "G.F. Handel", "Claudio Monteverdi"]
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science &amp; Nature",
+      "question": "Which planet has the moon Triton?",
+      "correct_answer": "Neptune",
+      "incorrect_answers": ["Uranus", "Saturn", "Jupiter"]
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science &amp; Nature",
+      "question": "What is the smallest prime number greater than 100?",
+      "correct_answer": "101",
+      "incorrect_answers": ["103", "107", "109"]
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Science &amp; Nature",
+      "question": "Which naturally occurring metal has the highest melting point?",
+      "correct_answer": "Tungsten",
+      "incorrect_answers": ["Iron", "Osmium", "Titanium"]
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Literature",
+      "question": "Who wrote the novel &quot;The Trial&quot;?",
+      "correct_answer": "Franz Kafka",
+      "incorrect_answers": ["Thomas Mann", "Hermann Hesse", "Rainer M. Rilke"]
+    },
+    {
+      "type": "multiple",
+      "difficulty": "hard",
+      "category": "Geography",
+      "question": "What is the deepest known ocean trench?",
+      "correct_answer": "Mariana Trench",
+      "incorrect_answers": ["Tonga Trench", "Java Trench", "Puerto Rico Trench"]
+    },
+    {
+      "type": "boolean",
+      "difficulty": "easy",
+      "category": "Animals",
+      "question": "Are dolphins fish?",
+      "correct_answer": "False",
+      "incorrect_answers": ["True"]
+    },
+    {
+      "type": "boolean",
+      "difficulty": "medium",
+      "category": "Science &amp; Nature",
+      "question": "Does Venus have any natural moons?",
+      "correct_answer": "False",
+      "incorrect_answers": ["True"]
+    }
+  ]
+}

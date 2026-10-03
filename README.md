@@ -75,6 +75,24 @@ pick it up the next time you open Claude Code there.
 - The board uses a cream background, a brown frame, and warm colors for givens,
   entries, the selected cell and matching digits.
 
+## trivia
+
+A quiz-show prize ladder in the band above the prompt, played only with clicks.
+
+```
+/trivia            # show or hide the band (also /trivia on, /trivia off)
+```
+
+- 15 questions, easy to hard, from $100 to $1,000,000. Safe levels at $1,000
+  and $32,000; `Walk away` keeps what you have won so far.
+- Click an answer box to lock it in. After a short suspense the right answer
+  turns green and a wrong pick red.
+- The question types itself out and the answers appear one by one; the board
+  keeps the terminal's own background.
+- Questions come from `trivia/questions.json`, in the format the
+  [Open Trivia DB](https://opentdb.com/) API returns. HTML entities are decoded
+  and true/false questions are skipped. The game lasts for the session.
+
 ## Adding a mod
 
 1. Create `<mod>/` with `.claude-plugin/plugin.json`, `hooks/hooks.json` and
