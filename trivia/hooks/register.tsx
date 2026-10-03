@@ -10,6 +10,7 @@ import type {
   StageGame,
 } from '../types'
 import type { GameSelection } from './trivia'
+import { clawdSvgForPhase } from './clawd-svg'
 import {
   addGame,
   beginGame,
@@ -224,6 +225,29 @@ export const register: Register = on => {
     const bodyColumns = e.props.bodyColumns
     const geometry = layout(Math.max(1, Math.min(bodyColumns, 96)))
     const current = await read($, gameState)
+
+    if (e.surface === 'desktop' && 'Svg' in elements) {
+      const Svg = elements.Svg
+      const sprite = clawdSvgForPhase(current?.phase ?? 'idle')
+      return (
+        <Box width="100%" flexDirection="row" justifyContent="center" alignItems="center"
+          flexShrink={0}>
+          <Svg
+            source={sprite.source}
+            alt={sprite.alt}
+            width={80}
+            height={45}
+            isInteractive={sprite.isInteractive ? true : undefined}
+          />
+          <Client
+            key={STAGE}
+            module="./stage-desktop.tsx"
+            props={stageProps(current, geometry.width)}
+            flexGrow={1}
+          />
+        </Box>
+      )
+    }
 
     return (
       <Box width={bodyColumns} flexDirection="row" justifyContent="center" flexShrink={0}>

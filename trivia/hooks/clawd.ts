@@ -37,7 +37,7 @@ const setArm = (pixels: Pixel[][], x: number, y: number, color: string) => {
   setPixel(pixels, 14 - x, y, color)
 }
 
-const makePixels = (look: ClawdLook): Pixel[][] => {
+export const makePixels = (look: ClawdLook): Pixel[][] => {
   const pixels = Array.from({ length: 8 }, () => Array<Pixel>(16).fill(null))
   const verticalOffset = look.jump ? -1 : 0
 
