@@ -300,13 +300,15 @@ test('Desktop card corners pick answers while the gap and locked state do nothin
     await ui.pointer({ type: 'down', x: 25, y: 3, button: 'left', in: 'stage' })
     const afterGap = triviaProps(await ui.find({ key: 'stage' })).game!
     expect(afterGap.phase).toBe('asking')
+    await ui.pointer({ type: 'down', x: 0, y: 5, button: 'left', in: 'stage' })
+    expect(triviaProps(await ui.find({ key: 'stage' })).game!.phase).toBe('asking')
     expect(afterGap.selectedAnswer).toBeNull()
 
     const corners = [
       { choice: 0, x: 0, y: 3 },
-      { choice: 1, x: 49, y: 5 },
+      { choice: 1, x: 49, y: 4 },
       { choice: 2, x: 0, y: 6 },
-      { choice: 3, x: 49, y: 8 },
+      { choice: 3, x: 49, y: 7 },
     ] as const
 
     for (const corner of corners) {

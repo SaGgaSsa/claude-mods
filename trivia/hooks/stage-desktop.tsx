@@ -18,7 +18,8 @@ const CARD_HOVER = '#45391f'
 
 const HEADER_ROWS = 1
 const QUESTION_ROWS = 2
-const ANSWER_CARD_ROWS = 3
+const ANSWER_CARD_ROWS = 2
+const ANSWER_ROW_MARGIN = 1
 const ANSWER_ROW_COUNT = 2
 const ANSWER_GAP = 1
 const ANSWER_CARD_WIDTH = '50%' as const
@@ -31,6 +32,7 @@ type AnswerGeometry = {
   answerTop: number
   answerRows: number
   cardRows: number
+  rowMargin: number
   cardWidth: typeof ANSWER_CARD_WIDTH
   gap: number
   leftEnd: number
@@ -82,6 +84,7 @@ const answerGeometryFor = (columns: number): AnswerGeometry => {
     answerTop: HEADER_ROWS + QUESTION_ROWS,
     answerRows: ANSWER_ROW_COUNT,
     cardRows: ANSWER_CARD_ROWS,
+    rowMargin: ANSWER_ROW_MARGIN,
     cardWidth: ANSWER_CARD_WIDTH,
     gap: ANSWER_GAP,
     leftEnd: leftWidth,
@@ -95,8 +98,10 @@ const answerAt = (x: number, y: number, columns: number): Choice | null => {
   const relativeY = y - geometry.answerTop
   if (relativeY < 0) return null
 
-  const row = Math.floor(relativeY / geometry.cardRows)
-  if (row >= geometry.answerRows) return null
+  // Each row of cards is followed by its margin, which picks nothing.
+  const pitch = geometry.cardRows + geometry.rowMargin
+  const row = Math.floor(relativeY / pitch)
+  if (row >= geometry.answerRows || relativeY % pitch >= geometry.cardRows) return null
 
   if (x < geometry.leftEnd) return (row * 2) as Choice
   if (x >= geometry.rightStart) return (row * 2 + 1) as Choice
@@ -387,7 +392,6 @@ const answerRows = (
         width: geometry.cardWidth,
         height: geometry.cardRows,
         minWidth: 0,
-        paddingX: 1,
         borderStyle: 'round',
         borderColor: stateColor ?? AMBER,
         backgroundColor: stateColor ?? CARD,
@@ -409,6 +413,7 @@ const answerRows = (
       flexDirection: 'row',
       alignItems: 'stretch',
       gap: geometry.gap,
+      marginBottom: geometry.rowMargin,
       children: cells,
     }))
   }
@@ -507,7 +512,6 @@ const renderStage = (
     flexDirection: 'row',
     justifyContent: note ? 'space-between' : 'flex-end',
     alignItems: 'center',
-    marginTop: 1,
     paddingX: 1,
     children: note ? [note, button] : [button],
   })
