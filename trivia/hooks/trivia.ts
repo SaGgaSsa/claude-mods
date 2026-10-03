@@ -123,6 +123,99 @@ export const shuffle = <T>(items: readonly T[], random: () => number): T[] => {
   return shuffled
 }
 
+const hashByte = (hash: number, byte: number): number => Math.imul(hash ^ byte, 0x01000193)
+
+export const questionId = (question: string): string => {
+  const normalized = question.trim().toLowerCase()
+  let hash = 0x811c9dc5
+
+  for (const character of normalized) {
+    const codePoint = character.codePointAt(0) ?? 0
+    if (codePoint <= 0x7f) {
+      hash = hashByte(hash, codePoint)
+    } else if (codePoint <= 0x7ff) {
+      hash = hashByte(hash, 0xc0 | (codePoint >> 6))
+      hash = hashByte(hash, 0x80 | (codePoint & 0x3f))
+    } else if (codePoint <= 0xffff) {
+      hash = hashByte(hash, 0xe0 | (codePoint >> 12))
+      hash = hashByte(hash, 0x80 | ((codePoint >> 6) & 0x3f))
+      hash = hashByte(hash, 0x80 | (codePoint & 0x3f))
+    } else {
+      hash = hashByte(hash, 0xf0 | (codePoint >> 18))
+      hash = hashByte(hash, 0x80 | ((codePoint >> 12) & 0x3f))
+      hash = hashByte(hash, 0x80 | ((codePoint >> 6) & 0x3f))
+      hash = hashByte(hash, 0x80 | (codePoint & 0x3f))
+    }
+  }
+
+  return (hash >>> 0).toString(16).padStart(8, '0')
+}
+
+export const parseSeen = (value: unknown): string[] => {
+  if (!Array.isArray(value)) return []
+  const seen: string[] = []
+  for (const entry of value as unknown[]) {
+    if (typeof entry !== 'string' || !/^[\da-f]{8}$/i.test(entry)) return []
+    const id = entry.toLowerCase()
+    if (!seen.includes(id)) seen.push(id)
+  }
+  return seen
+}
+
+const uniqueQuestions = (bank: readonly TriviaQuestion[]): TriviaQuestion[] => {
+  const ids = new Set<string>()
+  return bank.filter(question => {
+    const id = questionId(question.question)
+    if (ids.has(id)) return false
+    ids.add(id)
+    return true
+  })
+}
+
+const cleanSeen = (bank: readonly TriviaQuestion[], seen: readonly string[]): string[] => {
+  const bankIds = new Set(uniqueQuestions(bank).map(question => questionId(question.question)))
+  return [...new Set(seen.filter(id => bankIds.has(id)))]
+}
+
+export const seenForNewGame = (
+  bank: readonly TriviaQuestion[],
+  seen: readonly string[],
+): string[] => {
+  const clean = cleanSeen(bank, seen)
+  const seenIds = new Set(clean)
+  const bankIds = uniqueQuestions(bank).map(question => questionId(question.question))
+  if (bankIds.length > 0 && bankIds.every(id => seenIds.has(id))) return []
+  return clean
+}
+
+export const orderByUnseen = (
+  bank: readonly TriviaQuestion[],
+  seen: readonly string[],
+  random: () => number = Math.random,
+): TriviaQuestion[] => {
+  const questions = uniqueQuestions(bank)
+  const seenIds = new Set(seenForNewGame(bank, seen))
+  const unseen = questions.filter(question => !seenIds.has(questionId(question.question)))
+  const viewed = questions.filter(question => seenIds.has(questionId(question.question)))
+  return [...shuffle(unseen, random), ...shuffle(viewed, random)]
+}
+
+export const markSeen = (
+  bank: readonly TriviaQuestion[],
+  seen: readonly string[],
+  question: string,
+): string[] => {
+  const updated = cleanSeen(bank, seen)
+  const id = questionId(question)
+  if (
+    uniqueQuestions(bank).some(entry => questionId(entry.question) === id) &&
+    !updated.includes(id)
+  ) {
+    updated.push(id)
+  }
+  return updated
+}
+
 const makeRound = (question: TriviaQuestion, random: () => number): TriviaRound => {
   const choices = shuffle([
     { answer: question.correctAnswer, correct: true },
@@ -143,8 +236,9 @@ const makeRound = (question: TriviaQuestion, random: () => number): TriviaRound 
 export const newGame = (
   bank: readonly TriviaQuestion[],
   random: () => number = Math.random,
+  seen: readonly string[] = [],
 ): TriviaGame => {
-  const questions = shuffle(bank, random)
+  const questions = orderByUnseen(bank, seen, random)
   const rounds = questions.map(question => makeRound(question, random))
 
   return {
@@ -198,9 +292,10 @@ export const startOrRestart = (
   game: TriviaGame | null,
   bank: readonly TriviaQuestion[],
   random: () => number = Math.random,
+  seen: readonly string[] = [],
 ): TriviaGame | null => {
   if (!game) {
-    const fresh = newGame(bank, random)
+    const fresh = newGame(bank, random, seen)
     return fresh.rounds.length > 0 ? { ...fresh, phase: 'asking' } : fresh
   }
 
@@ -209,7 +304,7 @@ export const startOrRestart = (
   }
   if (game.phase !== 'wrong' && game.phase !== 'cleared') return game
 
-  const fresh = newGame(bank, random)
+  const fresh = newGame(bank, random, seen)
   return fresh.rounds.length > 0 ? { ...fresh, phase: 'asking' } : fresh
 }
 

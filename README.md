@@ -88,8 +88,11 @@ A multiple-choice streak game in the band above the prompt, played only with cli
 /trivia            # show or hide the band (also /trivia on, /trivia off)
 ```
 
-- Questions come at random from the whole pool, without repeats, until the first
-  wrong answer. Each right answer adds one to the streak.
+- Questions come at random from the whole pool until the first wrong answer.
+  Each right answer adds one to the streak.
+- No question comes back until you have seen every other one: answered
+  questions are remembered across games and sessions, and the cycle starts over
+  once the whole pool has been seen.
 - When a game ends, the right answer is revealed, then a final screen shows the
   streak, the question you missed, a bar chart of the last games and a centered
   `New game` button. The last 10 games and the best streak are kept across

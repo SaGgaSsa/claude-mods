@@ -11,14 +11,18 @@ import type {
 } from '../types'
 import {
   addGame,
+  currentRound,
   emptyHistory,
   isTriviaMessage,
+  markSeen,
   newGame,
   next,
   parseHistory,
   parseQuestionBank,
+  parseSeen,
   pick,
   reveal,
+  seenForNewGame,
   startOrRestart,
   layout,
 } from './trivia'
@@ -30,6 +34,7 @@ const gameState = atom({ plugin: 'trivia', key: 'game' } as const, null)
 let questionBank: TriviaQuestion[] = []
 let bankError: string | null = null
 let history: TriviaHistory = emptyHistory()
+let seenQuestions: string[] = []
 let latestResultIsBest = false
 let terminalResultRecorded = false
 
@@ -50,9 +55,23 @@ const stageProps = (game: TriviaGame | null, width: number): TriviaProps => ({
   ),
 })
 
-const applyMessage = (game: TriviaGame | null, message: TriviaMessage): TriviaGame | null => {
+const sameSeen = (left: readonly string[], right: readonly string[]): boolean =>
+  left.length === right.length && left.every((id, index) => id === right[index])
+
+const prepareSeenForGame = (): boolean => {
+  const prepared = seenForNewGame(questionBank, seenQuestions)
+  if (sameSeen(prepared, seenQuestions)) return false
+  seenQuestions = prepared
+  return true
+}
+
+const applyMessage = (
+  game: TriviaGame | null,
+  message: TriviaMessage,
+  seen: readonly string[],
+): TriviaGame | null => {
   if (!game) return message.type === 'new'
-    ? startOrRestart(null, questionBank, Math.random)
+    ? startOrRestart(null, questionBank, Math.random, seen)
     : null
 
   switch (message.type) {
@@ -63,7 +82,7 @@ const applyMessage = (game: TriviaGame | null, message: TriviaMessage): TriviaGa
     case 'next':
       return next(game)
     case 'new':
-      return startOrRestart(game, questionBank, Math.random)
+      return startOrRestart(game, questionBank, Math.random, seen)
   }
 }
 
@@ -92,6 +111,11 @@ export const register: Register = on => {
     } catch {
       history = emptyHistory()
     }
+    try {
+      seenQuestions = parseSeen(await $.store.get('seen'))
+    } catch {
+      seenQuestions = []
+    }
     latestResultIsBest = false
     terminalResultRecorded = false
 
@@ -109,9 +133,10 @@ export const register: Register = on => {
 
     await update($, isShown, () => shown)
     if (shown && !(await read($, gameState))) {
+      if (prepareSeenForGame()) await $.store.set('seen', seenQuestions)
       latestResultIsBest = false
       terminalResultRecorded = false
-      await update($, gameState, () => newGame(questionBank, Math.random))
+      await update($, gameState, () => newGame(questionBank, Math.random, seenQuestions))
     }
 
     return { text: shown ? 'Trivia band shown.' : 'Trivia band hidden.' }
@@ -120,8 +145,22 @@ export const register: Register = on => {
   on('ui.message', { element: STAGE }, async ($, e) => {
     if (!isTriviaMessage(e.data)) return {}
     const current = await read($, gameState)
-    const updated = applyMessage(current, e.data)
+    const canStartGame = e.data.type === 'new' && (
+      !current || current.phase === 'idle' || current.phase === 'wrong' ||
+      current.phase === 'cleared'
+    )
+    if (canStartGame && prepareSeenForGame()) await $.store.set('seen', seenQuestions)
+
+    const updated = applyMessage(current, e.data, seenQuestions)
     if (updated === current) return {}
+
+    if (current?.phase === 'locked' && e.data.type === 'reveal' && updated) {
+      const answered = currentRound(current)
+      if (answered) {
+        seenQuestions = markSeen(questionBank, seenQuestions, answered.question)
+        await $.store.set('seen', seenQuestions)
+      }
+    }
 
     if (
       updated &&
