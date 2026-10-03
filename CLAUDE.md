@@ -46,7 +46,7 @@ Install for users: see README.md (`/plugin marketplace add SaGgaSsa/claude-mods`
 - `hooks/sudoku.ts`: pure logic: generation with a unique solution per difficulty, `setDigit`,
   `moveCursor`, `conflicts`. Boards are 81-character strings, `'0'` = empty.
 - The pane's `ui.render` hook draws three `Client`s in the terminal: `board.tsx`, `picker.tsx`
-  (difficulty) and `controls.tsx` (status, numeric keypad, New game). Each Client draws its own pixels and
+  (difficulty) and `controls.tsx` (status and New game). Each Client draws its own pixels and
   handles keys and clicks itself, then `surface.post`s a message. `register.tsx` answers it in a
   `ui.message` hook keyed by the Client's `element` and updates state. Other surfaces (no `Client`) get
   plain `Button` fallbacks.

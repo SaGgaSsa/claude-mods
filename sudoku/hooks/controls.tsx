@@ -12,7 +12,7 @@ import {
 } from './canvas'
 import { CLASH, CURSOR, GIVEN, PAPER, PAPER_ALT, PLAYER, WOOD } from './palette'
 
-type ControlsState = { selected: string | null }
+type ControlsState = { selected: 'new' | null }
 type StatusSegment = { text: string; color: string; bold?: boolean }
 
 const MOVES: Record<string, [number, number]> = {
@@ -38,12 +38,9 @@ const Controls: ClientModule<ControlsProps, ControlsState> = (props, surface) =>
       return send({ type: 'move', rows: move[0], cols: move[1], geometry: props.geometry })
     }
     if (/^[1-9]$/.test(event.key)) {
-      const key = `digit:${event.key}`
-      surface.setState({ selected: key })
       return send({ type: 'digit', digit: Number(event.key), geometry: props.geometry })
     }
     if (['0', 'backspace', 'delete', ' '].includes(event.key)) {
-      surface.setState({ selected: 'digit:0' })
       return send({ type: 'digit', digit: 0, geometry: props.geometry })
     }
     if (event.key === 'n') {
@@ -59,10 +56,7 @@ const Controls: ClientModule<ControlsProps, ControlsState> = (props, surface) =>
     if (!action) return send({ type: 'focus', geometry: props.geometry })
 
     surface.setState({ selected: action.key })
-    const message: ControlsMessage = action.type === 'new'
-      ? { type: 'new', geometry: props.geometry }
-      : { type: 'digit', digit: action.digit, geometry: props.geometry }
-    send(message)
+    send({ type: 'new', geometry: props.geometry })
   })
 
   const canvas = createCanvas(layout.width, layout.height, PAPER)
@@ -133,80 +127,16 @@ const Controls: ClientModule<ControlsProps, ControlsState> = (props, surface) =>
     fillRect(canvas, 1, layout.statusBandY, innerWidth, 1, PLAYER, PAPER_ALT)
   }
 
-  const paintTile = (row: number, col: number, label: string, key: string) => {
-    const position = layout.tilePosition(row, col)
-    const backgroundColor = selected === key
-      ? CURSOR
-      : (row + col) % 2 === 0 ? PAPER : PAPER_ALT
-    const color = selected === key ? GIVEN : PLAYER
-    fillRect(
-      canvas,
-      position.x,
-      position.y,
-      layout.tileWidth,
-      layout.tileHeight,
-      color,
-      backgroundColor,
-      ' ',
-      true,
-    )
-    if (label) {
-      writeCentered(
-        canvas,
-        label,
-        position.x,
-        position.y,
-        layout.tileWidth,
-        layout.tileHeight,
-        color,
-        backgroundColor,
-        true,
-      )
-    }
-  }
-
-  const digits = [
-    [7, 8, 9],
-    [4, 5, 6],
-    [1, 2, 3],
-  ]
-
-  for (let row = 0; row < digits.length; row++) {
-    for (let col = 0; col < 3; col++) {
-      const digit = digits[row]![col]!
-      paintTile(row, col, String(digit), `digit:${digit}`)
-    }
-  }
-
-  for (let col = 0; col < 3; col++) {
-    paintTile(3, col, '', 'digit:0')
-  }
-
-  const clearColor = selected === 'digit:0' ? GIVEN : PLAYER
-  const clearText = '0 Clear'
-  const clearX = layout.keypadX + Math.floor((layout.keypadWidth - clearText.length) / 2)
-  const clearTextY = layout.clearY + Math.floor(layout.tileHeight / 2)
-  for (let index = 0; index < clearText.length; index++) {
-    const x = clearX + index
-    const cell = canvas.cells[clearTextY]![x]!
-    setCell(canvas, x, clearTextY, {
-      ...cell,
-      character: clearText[index]!,
-      color: clearColor,
-      bold: true,
-    })
-  }
-
   const newBackground = selected === 'new' ? CURSOR : PAPER_ALT
   const newColor = selected === 'new' ? GIVEN : PLAYER
-  fillRect(canvas, 1, layout.newY, innerWidth, layout.tileHeight, newColor, newBackground, ' ', true)
+  fillRect(canvas, 1, layout.newY, innerWidth, layout.buttonHeight, newColor, newBackground, ' ', true)
   writeCentered(
     canvas,
     'New game',
     1,
     layout.newY,
     innerWidth,
-    layout.tileHeight,
+    layout.buttonHeight,
     newColor,
     newBackground,
     true,

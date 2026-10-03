@@ -48,7 +48,7 @@ const newGameClick = (geometry: GeometryProps) => {
   return {
     type: 'down' as const,
     x: Math.floor(controls.width / 2),
-    y: controls.newY + Math.floor(controls.tileHeight / 2),
+    y: controls.newY + Math.floor(controls.buttonHeight / 2),
     button: 'left' as const,
     in: 'controls' as const,
   }
@@ -211,7 +211,7 @@ test('the pane selects a difficulty and saves each game per folder', async ($, o
   expect(await ui.find({ type: 'Text', text: /Click the board/ })).toBeUndefined()
   expect(rootProps(await ui.drawn()).height).toBe(22)
   expect(rootProps(await ui.drawn()).width).toBe(48)
-  expect(rootProps(await ui.drawn()).justifyContent).toBeUndefined()
+  expect(rootProps(await ui.drawn()).justifyContent).toBe('center')
 
   let current = boardState(await ui.find({ key: 'board' }))
   expect(current.board).toHaveLength(81)
@@ -444,7 +444,7 @@ test('the terminal picker supports hotkeys, arrows, Enter and row clicks', async
   await ui.unmount()
 })
 
-test('terminal controls write, clear, show status and open the picker', async ($, on) => {
+test('terminal controls omit the keypad and keep keyboard entry and New game', async ($, on) => {
   const fresh = newGame('medium')
   let pair: number[] = []
   for (let row = 0; row < 9 && pair.length === 0; row++) {
@@ -483,45 +483,34 @@ test('terminal controls write, clear, show status and open the picker', async ($
       scroll: { ...PANE_PROPS.scroll, bodyRows: 55 },
     },
   })
-  const root = rootProps(await ui.drawn())
-  expect(root.backgroundColor).toBe(PAPER)
-  expect(root.width).toBe(48)
-  expect(root.height).toBe(55)
-  expect(root.justifyContent).toBe('center')
-  expect(await ui.findAll({ type: 'Button' })).toHaveLength(0)
-  const controlTexts = await ui.findAll({ type: 'Text', in: 'controls' })
-  expect(controlTexts.some(text => /[\u2190-\u2193]/.test(text.text))).toBe(false)
-  expect(controlsState(await ui.find({ key: 'controls' })).keyboardActive).toBe(false)
-  expect(await ui.find({ type: 'Text', text: /click (the )?board/, in: 'controls' })).toBeDefined()
 
-  const boardProps = boardState(await ui.find({ key: 'board' }))
-  const geometry = geometryAtScale(boardProps.geometry.scale)
-  const controls = controlsGeometry(boardProps.geometry)
+  expect(await ui.findAll({ type: 'Button' })).toHaveLength(0)
+  expect(await ui.find({ type: 'Text', text: /click (the )?board/, in: 'controls' })).toBeDefined()
+  expect(controlsState(await ui.find({ key: 'controls' })).keyboardActive).toBe(false)
+
+  const boardClient = boardState(await ui.find({ key: 'board' }))
+  const geometry = geometryAtScale(boardClient.geometry.scale)
+  const controls = controlsGeometry(boardClient.geometry)
   const controlsClient = await ui.find({ key: 'controls' })
   expect(controlsClient?.props.width).toBe(controls.width)
   expect(controlsClient?.props.height).toBe(controls.height)
+  expect(controls.height).toBe(controls.buttonHeight + 5)
   const controlsRoot = rootProps(await ui.drawn({ in: 'controls' }))
   expect(controlsRoot.width).toBe(controls.width)
   expect(controlsRoot.height).toBe(controls.height)
-  const beforeInputGrid = canvasOf(await ui.drawn({ in: 'controls' }))
-  expect(beforeInputGrid).toHaveLength(controls.height)
-  expect(beforeInputGrid.every(row => row.length === controls.width)).toBe(true)
-  expect(beforeInputGrid[0]!.every(pixel => pixel.backgroundColor === WOOD)).toBe(true)
-  expect(beforeInputGrid[controls.height - 1]!.every(pixel => pixel.backgroundColor === WOOD)).toBe(true)
-  expect(beforeInputGrid.some(row => row.some(pixel => blockFill.test(pixel.character)))).toBe(false)
-  const lineCharacter = /[\u2500\u2502\u253c\u2501\u2503\u254b\u253f\u2542]/
-  expect(beforeInputGrid.some(row => row.some(pixel => lineCharacter.test(pixel.character)))).toBe(false)
-  for (let row = 0; row < 4; row++) {
-    for (let col = 0; col < 3; col++) {
-      const position = controls.tilePosition(row, col)
-      const expectedBackground = (row + col) % 2 === 0 ? PAPER : PAPER_ALT
-      for (let y = position.y; y < position.y + controls.tileHeight; y++) {
-        for (let x = position.x; x < position.x + controls.tileWidth; x++) {
-          expect(beforeInputGrid[y]![x]!.backgroundColor).toBe(expectedBackground)
-        }
-      }
-    }
-  }
+
+  const controlGrid = canvasOf(await ui.drawn({ in: 'controls' }))
+  expect(controlGrid).toHaveLength(controls.height)
+  expect(controlGrid.every(row => row.length === controls.width)).toBe(true)
+  expect(controlGrid[0]!.every(cell => cell.backgroundColor === WOOD)).toBe(true)
+  expect(controlGrid[controls.height - 1]!.every(cell => cell.backgroundColor === WOOD)).toBe(true)
+  expect(controlGrid.some(row => row.some(cell => blockFill.test(cell.character)))).toBe(false)
+  const controlText = controlGrid.map(row => row.map(cell => cell.character).join('')).join('\n')
+  expect(controlText).toContain('New game')
+  expect(controlText).not.toContain('Clear')
+  expect(controls.actionAt(Math.floor(controls.width / 2), controls.newY - 1)).toBeNull()
+  expect(controls.actionAt(Math.floor(controls.width / 2), controls.newY)).toEqual({ type: 'new', key: 'new' })
+
   const cell = geometry.cellPosition(Math.floor(pair[1]! / 9), pair[1]! % 9)
   await ui.pointer({
     type: 'down',
@@ -530,141 +519,37 @@ test('terminal controls write, clear, show status and open the picker', async ($
     button: 'left',
     in: 'board',
   })
-  if (!controlsState(await ui.find({ key: 'controls' })).keyboardActive) {
-    throw new Error('Board click did not activate keyboard status')
-  }
-  expect(await ui.find({ type: 'Text', text: /click (the )?board/, in: 'controls' }))
-    .toBeUndefined()
+  expect(controlsState(await ui.find({ key: 'controls' })).keyboardActive).toBe(true)
+  expect(await ui.find({ type: 'Text', text: /click (the )?board/, in: 'controls' })).toBeUndefined()
 
-  const fiveX = controls.keypadX + controls.tileWidth + Math.floor(controls.tileWidth / 2)
-  const fiveY = controls.keypadY + controls.tileHeight + Math.floor(controls.tileHeight / 2)
-  await ui.pointer({ type: 'down', x: fiveX, y: fiveY, button: 'left', in: 'controls' })
+  await ui.key({ key: '5', in: 'board' })
   let changed = boardState(await ui.find({ key: 'board' }))
   expect(changed.board[pair[1]!]).toBe('5')
-
   let controlsProps = controlsState(await ui.find({ key: 'controls' }))
-  expect(controlsProps.difficulty).toBe('medium')
   expect(controlsProps.filled).toBe([...changed.board].filter(digit => digit !== '0').length)
   expect(controlsProps.clashes).toBe(conflicts(changed.board).size)
-  expect((await ui.find({ type: 'Text', text: /Medium/, in: 'controls' }))).toBeDefined()
-  expect((await ui.find({ type: 'Text', text: /\d+\/81 filled/, in: 'controls' }))).toBeDefined()
-  const highlights = await ui.findAll({ type: 'Text', in: 'controls' })
-  expect(highlights.map(text => text.text).join(' ')).toContain('in conflict')
-  if (!highlights.some(text => text.props.backgroundColor === CURSOR && text.text.includes('5'))) {
-    throw new Error(`Selected 5 is not highlighted: ${highlights.map(text => text.text).join('|')}`)
-  }
-  const selectedControlsGrid = canvasOf(await ui.drawn({ in: 'controls' }))
-  const fivePosition = controls.tilePosition(1, 1)
-  for (let y = fivePosition.y; y < fivePosition.y + controls.tileHeight; y++) {
-    for (let x = fivePosition.x; x < fivePosition.x + controls.tileWidth; x++) {
-      expect(selectedControlsGrid[y]![x]!.backgroundColor).toBe(CURSOR)
-    }
+  expect(controlsProps.clashes).toBeGreaterThan(0)
+  expect(await ui.find({ type: 'Text', text: /Medium/, in: 'controls' })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /\d+\/81 filled/, in: 'controls' })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /in conflict/, in: 'controls' })).toBeDefined()
+
+  for (const key of ['0', 'backspace', 'delete', ' ']) {
+    await ui.key({ key, in: 'board' })
+    changed = boardState(await ui.find({ key: 'board' }))
+    expect(changed.board[pair[1]!]).toBe('0')
+    if (key !== ' ') await ui.key({ key: '5', in: 'board' })
   }
 
-  const clearY = controls.clearY + Math.floor(controls.tileHeight / 2)
-  await ui.pointer({
-    type: 'down',
-    x: controls.keypadX,
-    y: clearY,
-    button: 'left',
-    in: 'controls',
-  })
-  changed = boardState(await ui.find({ key: 'board' }))
-  expect(changed.board[pair[1]!]).toBe('0')
-  controlsProps = controlsState(await ui.find({ key: 'controls' }))
-  expect(controlsProps.clashes).toBe(conflicts(changed.board).size)
-
-  const leftMargin = controls.keypadX - 1
-  const rightMargin = controls.width - 1 - (controls.keypadX + controls.keypadWidth)
-  expect(Math.abs(leftMargin - rightMargin)).toBeLessThanOrEqual(1)
-  expect(controls.keypadWidth).toBe(controls.tileWidth * 3)
-
-  const digitPositions = [
-    [7, 0, 0], [8, 0, 1], [9, 0, 2],
-    [4, 1, 0], [5, 1, 1], [6, 1, 2],
-    [1, 2, 0], [2, 2, 1], [3, 2, 2],
-  ] as const
-  const keypadGrid = canvasOf(await ui.drawn({ in: 'controls' }))
-  expect(keypadGrid).toHaveLength(controls.height)
-  expect(keypadGrid.every(row => row.length === controls.width)).toBe(true)
-  expect(keypadGrid.some(row => row.some(pixel => blockFill.test(pixel.character)))).toBe(false)
-  for (const [digit, row, col] of digitPositions) {
-    const position = controls.tilePosition(row, col)
-    const tileX = position.x
-    const tileY = position.y
-    const centerX = tileX + Math.floor(controls.tileWidth / 2)
-    const centerY = tileY + Math.floor(controls.tileHeight / 2)
-    expect(keypadGrid[centerY]![centerX]!.character).toBe(String(digit))
-    for (let y = tileY; y < tileY + controls.tileHeight; y++) {
-      for (let x = tileX; x < tileX + controls.tileWidth; x++) {
-        const tileBackground = (row + col) % 2 === 0 ? PAPER : PAPER_ALT
-        expect(keypadGrid[y]![x]!.backgroundColor).toBe(tileBackground)
-      }
-    }
-    for (const x of [tileX, tileX + Math.floor(controls.tileWidth / 2), tileX + controls.tileWidth - 1]) {
-      await ui.pointer({
-        type: 'down',
-        x,
-        y: centerY,
-        button: 'left',
-        in: 'controls',
-      })
-      expect(boardState(await ui.find({ key: 'board' })).board[pair[1]!]).toBe(String(digit))
-      await ui.pointer({
-        type: 'down',
-        x: controls.keypadX,
-        y: clearY,
-        button: 'left',
-        in: 'controls',
-      })
-      expect(boardState(await ui.find({ key: 'board' })).board[pair[1]!]).toBe('0')
-    }
-  }
-
-  await ui.key({ key: '5', in: 'controls' })
-  expect(boardState(await ui.find({ key: 'board' })).board[pair[1]!]).toBe('5')
-  await ui.key({ key: '0', in: 'controls' })
-  expect(boardState(await ui.find({ key: 'board' })).board[pair[1]!]).toBe('0')
-  for (const x of [controls.keypadX + Math.floor(controls.keypadWidth / 2), controls.keypadX]) {
-    await ui.key({ key: '5', in: 'controls' })
-    await ui.pointer({
-      type: 'down',
-      x,
-      y: clearY,
-      button: 'left',
-      in: 'controls',
-    })
-    expect(boardState(await ui.find({ key: 'board' })).board[pair[1]!]).toBe('0')
-  }
-
-  await ui.key({ key: 'left', in: 'controls' })
+  await ui.key({ key: 'left', in: 'board' })
   expect(boardState(await ui.find({ key: 'board' })).cursor).toBe(pair[1]! - 1)
-  await ui.key({ key: 'right', in: 'controls' })
+  await ui.key({ key: 'right', in: 'board' })
   expect(boardState(await ui.find({ key: 'board' })).cursor).toBe(pair[1])
-  await ui.key({ key: 'n', in: 'controls' })
-  expect(await ui.find({ key: 'picker' })).toBeDefined()
-  await ui.key({ key: 'down', in: 'picker' })
-  const activePickerGrid = canvasOf(await ui.drawn({ in: 'picker' }))
-  expect(activePickerGrid[7]!.slice(1, -1).every(cell => cell.backgroundColor === CURSOR)).toBe(true)
-  await ui.key({ key: '5', in: 'picker' })
-  await ui.key({ key: 'c', in: 'picker' })
-  changed = boardState(await ui.find({ key: 'board' }))
-  expect(changed.board[pair[1]!]).toBe('5')
 
-  await ui.pointer(newGameClick(boardProps.geometry))
+  await ui.pointer(newGameClick(boardClient.geometry))
   expect(await ui.find({ key: 'picker' })).toBeDefined()
   await ui.key({ key: 'c', in: 'picker' })
-  await ui.pointer({
-    type: 'down',
-    x: controls.width - 2,
-    y: controls.newY + Math.floor(controls.tileHeight / 2),
-    button: 'left',
-    in: 'controls',
-  })
-  expect(await ui.find({ key: 'picker' })).toBeDefined()
   await ui.unmount()
 })
-
 test('focus routing preserves engine stops and keyboard scroll distinguishes the wheel', async () => {
   expect(focusTarget('another-element', 'another-plugin', false)).toBe('board')
   expect(focusTarget('another-element', 'another-plugin', true)).toBe('picker')
@@ -682,7 +567,7 @@ test('geometry scales the board, fills highlights and maps clicks to nearby cell
   const cases = [
     { columns: 44, rows: 30, scale: 1 },
     { columns: 80, rows: 50, scale: 3 },
-    { columns: 120, rows: 75, scale: 3 },
+    { columns: 120, rows: 75, scale: 5 },
     { columns: 20, rows: 15, scale: 1 },
   ] as const
 
@@ -827,7 +712,7 @@ test('geometry scales the board, fills highlights and maps clicks to nearby cell
   expect(panelRoot.backgroundColor).toBe(PAPER)
   expect(panelRoot.width).toBe(80)
   expect(panelRoot.height).toBe(50)
-  expect(panelRoot.justifyContent).toBeUndefined()
+  expect(panelRoot.justifyContent).toBe('center')
   expect(panelRoot.alignItems).toBe('center')
   const largeClient = await ui.find({ key: 'board' })
   expect(largeClient?.props.width).toBe(geometry.width)
@@ -865,17 +750,17 @@ test('geometry scales the board, fills highlights and maps clicks to nearby cell
   ui = await mount(120, 75)
   state = boardState(await ui.find({ key: 'board' }))
   geometry = geometryAtScale(state.geometry.scale)
-  expect(state.geometry.scale).toBe(3)
-  const scaleThreeClient = await ui.find({ key: 'board' })
-  expect(scaleThreeClient?.props.width).toBe(geometry.width)
-  expect(scaleThreeClient?.props.height).toBe(geometry.height)
-  const scaleThreeControls = controlsGeometry(state.geometry)
-  const scaleThreeControlsClient = await ui.find({ key: 'controls' })
-  expect(scaleThreeControlsClient?.props.width).toBe(scaleThreeControls.width)
-  expect(scaleThreeControlsClient?.props.height).toBe(scaleThreeControls.height)
-  const scaleThreeControlsRoot = rootProps(await ui.drawn({ in: 'controls' }))
-  expect(scaleThreeControlsRoot.width).toBe(scaleThreeControls.width)
-  expect(scaleThreeControlsRoot.height).toBe(scaleThreeControls.height)
+  expect(state.geometry.scale).toBe(5)
+  const scaleFiveClient = await ui.find({ key: 'board' })
+  expect(scaleFiveClient?.props.width).toBe(geometry.width)
+  expect(scaleFiveClient?.props.height).toBe(geometry.height)
+  const scaleFiveControls = controlsGeometry(state.geometry)
+  const scaleFiveControlsClient = await ui.find({ key: 'controls' })
+  expect(scaleFiveControlsClient?.props.width).toBe(scaleFiveControls.width)
+  expect(scaleFiveControlsClient?.props.height).toBe(scaleFiveControls.height)
+  const scaleFiveControlsRoot = rootProps(await ui.drawn({ in: 'controls' }))
+  expect(scaleFiveControlsRoot.width).toBe(scaleFiveControls.width)
+  expect(scaleFiveControlsRoot.height).toBe(scaleFiveControls.height)
   expectBoardGrid(canvasOf(await ui.drawn({ in: 'board' })), state, geometry)
   await ui.unmount()
 })

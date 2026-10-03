@@ -61,7 +61,10 @@ test('desktop uses flex Clients for the game and keeps terminal Clients unchange
   const state = boardProps(board)
   expect((await ui.find({ key: 'controls' }))?.props.width)
     .toBe(desktopBoardDimensions(state.geometry).width)
-  expect((await ui.find({ key: 'digit:1', in: 'controls' }))?.props.variant).toBe('secondary')
+  expect(await ui.findAll({ type: 'Button', in: 'controls' })).toHaveLength(1)
+  expect(await ui.find({ key: 'digit:1', in: 'controls' })).toBeUndefined()
+  expect(await ui.find({ key: 'digit:0', in: 'controls' })).toBeUndefined()
+  expect(await ui.find({ key: 'new', in: 'controls' })).toBeDefined()
   const empty = state.board.indexOf('0')
   const position = desktopCellPosition(
     state.geometry,
@@ -76,10 +79,11 @@ test('desktop uses flex Clients for the game and keeps terminal Clients unchange
 
   await ui.key({ key: '5', in: 'board' })
   expect(boardProps(await ui.find({ key: 'board' })).board[empty]).toBe('5')
-  await ui.press({ key: 'digit:7' })
+  await ui.key({ key: 'backspace', in: 'board' })
+  expect(boardProps(await ui.find({ key: 'board' })).board[empty]).toBe('0')
+  await ui.key({ key: '7', in: 'board' })
   expect(boardProps(await ui.find({ key: 'board' })).board[empty]).toBe('7')
-  expect((await ui.find({ key: 'digit:7', in: 'controls' }))?.props.variant).toBe('primary')
-  await ui.press({ key: 'digit:0' })
+  await ui.key({ key: 'delete', in: 'board' })
   expect(boardProps(await ui.find({ key: 'board' })).board[empty]).toBe('0')
 
   await ui.press({ key: 'new' })

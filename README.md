@@ -74,8 +74,7 @@ pick it up the next time you open Claude Code there.
 - Click the board to give it the keyboard: arrows (or `w` `a` `s` `d`) move,
   `1`–`9` write a digit, `0`/Backspace/Delete clear it, Esc hands the keys back.
   While the board has them, no key reaches the prompt.
-- Click a number tile under the board to enter that digit; click `0 Clear` to
-  erase the selected cell, or `New game` to open the difficulty picker.
+- Click `New game` to open the difficulty picker.
 - Givens can't be changed; digits that repeat in a row, column or box turn red.
 - The board uses a cream background, a brown frame, and warm colors for givens,
   entries, the selected cell and matching digits.
