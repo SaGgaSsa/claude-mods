@@ -14,6 +14,7 @@ Inside Claude Code:
 ```
 /plugin marketplace add SaGgaSsa/claude-mods
 /plugin install sudoku@claude-mods
+/plugin install trivia@claude-mods
 /reload-plugins
 ```
 
@@ -22,6 +23,7 @@ Or from a shell:
 ```
 claude plugin marketplace add SaGgaSsa/claude-mods
 claude plugin install sudoku@claude-mods
+claude plugin install trivia@claude-mods
 ```
 
 ### From a local clone
@@ -30,6 +32,7 @@ claude plugin install sudoku@claude-mods
 git clone git@github.com:SaGgaSsa/claude-mods.git
 /plugin marketplace add ./claude-mods
 /plugin install sudoku@claude-mods
+/plugin install trivia@claude-mods
 /reload-plugins
 ```
 
@@ -38,6 +41,7 @@ git clone git@github.com:SaGgaSsa/claude-mods.git
 ```
 /plugin marketplace update claude-mods
 /plugin uninstall sudoku@claude-mods
+/plugin uninstall trivia@claude-mods
 ```
 
 `/plugin` opens the plugin manager, where you can also enable, disable or update each mod.
@@ -46,6 +50,7 @@ git clone git@github.com:SaGgaSsa/claude-mods.git
 
 ```
 claude --plugin-dir ./sudoku
+claude --plugin-dir ./trivia
 ```
 
 The mod loads for that session only and reloads when its files change.
@@ -94,20 +99,23 @@ A multiple-choice streak game in the band above the prompt, played only with cli
 - Clawd hosts: it bounces and waves while the question types itself out, then
   reacts to your answer. The answers appear one by one; the board
   keeps the terminal's own background.
-- Questions come from `trivia/questions.json`, in the format the
-  [Open Trivia DB](https://opentdb.com/) API returns. HTML entities are decoded
-  and true/false questions are skipped.
-- To add questions from the API (up to 50 per batch, duplicates skipped), from
-  the repo root on Windows:
+- It ships with 1000 questions from [Open Trivia DB](https://opentdb.com/)
+  (CC BY-SA 4.0) in `trivia/questions.json`, in the format its API returns.
+  HTML entities are decoded and true/false questions are skipped.
 
-  ```
-  powershell -ExecutionPolicy Bypass -File trivia/scripts/fetch-questions.ps1 -Batches 4
-  ```
+### Changing the questions
 
-  `-Category <id>` and `-Difficulty easy|medium|hard` filter them. The bank is
-  capped at 1000 questions: the script stops there and refuses to run on a
-  full bank. Restart
-  Claude Code or run `/reload-plugins` to load the new questions.
+Edit `trivia/questions.json` by hand, or fetch more from the API with the script
+(Windows, from the repo root; up to 50 per batch, duplicates skipped):
+
+```
+powershell -ExecutionPolicy Bypass -File trivia/scripts/fetch-questions.ps1 -Batches 4
+```
+
+`-Category <id>` and `-Difficulty easy|medium|hard` filter them; category ids are
+at https://opentdb.com/api_category.php. The bank is capped at 1000 questions:
+the script stops there and refuses to run on a full bank, so remove some first
+to make room. Restart Claude Code or run `/reload-plugins` to load the changes.
 
 ## Adding a mod
 
