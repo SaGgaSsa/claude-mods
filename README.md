@@ -106,6 +106,8 @@ A multiple-choice streak game in the band above the prompt, played only with cli
 - Clawd hosts: it bounces and waves while the question types itself out, then
   reacts to your answer. The answers appear one by one; the board
   keeps the terminal's own background.
+- It runs in the terminal and in the Claude Code desktop app; VS Code and the
+  mobile app show a short note instead.
 - It ships with 1000 questions from [The Trivia API](https://the-trivia-api.com/)
   (CC BY-NC 4.0): 100 per category across ten categories (general knowledge,
   geography, history, science, sport, music, film & TV, arts & literature,

@@ -1,6 +1,6 @@
 {
   "name": "trivia",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "description": "A quiz-show question ladder in the band above the prompt, played by clicking",
   "author": { "name": "SaGgaSsa" },
   "types": "./types/index.d.ts"

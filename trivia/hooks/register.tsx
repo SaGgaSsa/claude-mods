@@ -217,10 +217,9 @@ export const register: Register = on => {
 
     const elements = $.ui.resolve(e)
     const { Box, Text } = elements
-    if (e.surface !== 'terminal') return <Text>Trivia runs in the terminal.</Text>
-
+    // The terminal and the desktop app draw a Client; VS Code and mobile don't yet.
     const Client = 'Client' in elements ? elements.Client : undefined
-    if (!Client) return nextEvent(e)
+    if (!Client) return <Text>Trivia runs in the terminal and the desktop app.</Text>
 
     const bodyColumns = e.props.bodyColumns
     const geometry = layout(Math.max(1, Math.min(bodyColumns, 96)))
