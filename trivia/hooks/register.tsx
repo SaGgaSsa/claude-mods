@@ -53,10 +53,11 @@ export const stageGame = (
   }
 }
 
-const stageProps = (game: TriviaGame | null, width: number): TriviaProps => ({
+const stageProps = (game: TriviaGame | null, width: number, maxRows?: number): TriviaProps => ({
   game: stageGame(game, questionBank.length),
   error: bankError,
   width,
+  ...(maxRows === undefined ? {} : { maxRows }),
   best: history.best,
   recent: history.games.map(entry => entry.streak),
   newBest: Boolean(
@@ -229,22 +230,21 @@ export const register: Register = on => {
     if (e.surface === 'desktop' && 'Svg' in elements) {
       const Svg = elements.Svg
       const sprite = clawdSvgForPhase(current?.phase ?? 'idle')
+      const desktopRows = Math.max(1, Math.min(e.props.maxRows, e.props.scroll.bodyRows) - 1)
       return (
-        <Box width="100%" flexDirection="row" justifyContent="center" alignItems="center"
+        <Box width="100%" position="relative" flexDirection="row" alignItems="stretch"
           flexShrink={0}>
-          <Svg
-            source={sprite.source}
-            alt={sprite.alt}
-            width={80}
-            height={45}
-            isInteractive={sprite.isInteractive ? true : undefined}
-          />
+          <Box width={10} flexShrink={0} />
           <Client
             key={STAGE}
             module="./stage-desktop.tsx"
-            props={stageProps(current, geometry.width)}
+            props={stageProps(current, geometry.width, desktopRows)}
             flexGrow={1}
           />
+          <Box position="absolute" left={0} top={0} bottom={0} width={10}
+            flexDirection="column" justifyContent="center" alignItems="center">
+            <Svg source={sprite.source} alt={sprite.alt} width={64} height={36} />
+          </Box>
         </Box>
       )
     }

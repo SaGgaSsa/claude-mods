@@ -5,7 +5,6 @@ import { makePixels } from './clawd'
 type ClawdSprite = {
   source: string
   alt: string
-  isInteractive: boolean
 }
 
 const lookFor = (phase: TriviaPhase): ClawdLook => {
@@ -49,11 +48,11 @@ const sourceFor = (phase: TriviaPhase): string => {
     : ''
 
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -1 16 9" ' +
-    'shape-rendering="crispEdges"><g>' + animation + rects.join('') + '</g></svg>'
+    'shape-rendering="crispEdges" style="background-color:transparent"><g>' +
+    animation + rects.join('') + '</g></svg>'
 }
 
 export const clawdSvgForPhase = (phase: TriviaPhase): ClawdSprite => ({
   source: sourceFor(phase),
   alt: altFor(phase),
-  isInteractive: phase === 'asking' || phase === 'locked',
 })

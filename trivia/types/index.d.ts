@@ -53,6 +53,7 @@ export type TriviaProps = {
   game: StageGame | null
   error: string | null
   width: number
+  maxRows?: number
   best: number
   recent: number[]
   newBest: boolean

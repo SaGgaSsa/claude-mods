@@ -13,6 +13,8 @@ const LOCKED_ONE = '#c7771b'
 const LOCKED_TWO = '#e3a32d'
 const GREEN = '#28783d'
 const RED = '#a93636'
+const CARD = '#302a20'
+const CARD_HOVER = '#45391f'
 
 type Choice = 0 | 1 | 2 | 3
 
@@ -46,7 +48,6 @@ type PanelModel = {
   action: 'start' | 'new' | null
   actionLabel: string | null
   history: number[]
-  footer: string
 }
 
 const phaseOf = (props: TriviaProps): TriviaPhase => props.game?.phase ?? 'idle'
@@ -150,19 +151,34 @@ const panelHistory = (
 ): RenderElement => {
   const recent = streaks.slice(0, 10).reverse()
   const maxStreak = Math.max(0, ...recent)
+  const maxBarHeight = Math.max(1, Math.min(2, Math.floor((props.maxRows ?? 10) - 6)))
   const { Box, Text } = elements
+
+  if (recent.length === 0) {
+    return Box({
+      flexDirection: 'column',
+      alignItems: 'center',
+      children: [
+        Text({ color: AMBER, bold: true, children: `Best ${props.best} · Last games` }),
+        Text({ color: '#8f8a80', children: 'No games yet' }),
+      ],
+    })
+  }
+
   const bars = recent.map((streak, index) => {
     const isLatest = index === recent.length - 1
-    const height = maxStreak === 0 ? 0 : Math.round((streak / maxStreak) * 5)
+    const height = maxStreak === 0
+      ? 1
+      : Math.max(1, Math.round((streak / maxStreak) * maxBarHeight))
     const color = streak === 0 && !isLatest
       ? '#77736a'
       : isLatest ? BRIGHT_AMBER : AMBER
 
     return Box({
+      width: 2,
       flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'flex-end',
-      gap: 1,
       children: [
         Box({ width: 2, height, backgroundColor: color }),
         Text({ color: isLatest ? BRIGHT_AMBER : SOFT_WHITE, children: String(streak) }),
@@ -173,7 +189,6 @@ const panelHistory = (
   return Box({
     flexDirection: 'column',
     alignItems: 'center',
-    gap: 1,
     children: [
       Text({ color: AMBER, bold: true, children: `Best ${props.best} · Last games` }),
       Box({ flexDirection: 'row', alignItems: 'flex-end', gap: 1, children: bars }),
@@ -192,11 +207,11 @@ const renderPanel = (
     Box({
       flexDirection: 'column',
       alignItems: 'center',
-      gap: 1,
       children: [
-        Text({ color: AMBER, bold: true, children: model.title }),
+        Text({ color: AMBER, bold: true, wrap: 'truncate', children: model.title }),
         ...model.lines.map(line => Text({
           color: line.color,
+          wrap: 'truncate',
           ...(line.bold ? { bold: true } : {}),
           children: line.text,
         })),
@@ -212,17 +227,14 @@ const renderPanel = (
         key: model.action === 'start' ? 'start' : 'new-game',
         label: model.actionLabel,
         variant: 'primary',
+        dimColor: false,
         onPress: onAction,
       })],
     }))
   }
 
-  if (model.history.length > 0) children.push(panelHistory(elements, props, model.history))
-  if (model.footer) {
-    children.push(Text({ color: '#8f8a80', children: model.footer }))
-  }
-
-  return Box({ flexDirection: 'column', alignItems: 'stretch', gap: 1, children })
+  children.push(panelHistory(elements, props, model.history))
+  return Box({ flexDirection: 'column', alignItems: 'stretch', children })
 }
 
 const introPanel = (props: TriviaProps): PanelModel => {
@@ -233,22 +245,19 @@ const introPanel = (props: TriviaProps): PanelModel => {
 
   return {
     title: 'TRIVIA',
-    lines: [
-      { text: 'Answer until you miss', color: SOFT_WHITE, bold: true },
-      problem
-        ? { text: problem, color: '#e49a91' }
-        : { text: `${count} questions in the pool`, color: '#b9b2a2' },
-    ],
+    lines: [problem
+      ? { text: problem, color: '#e49a91' }
+      : { text: `Answer until you miss · ${count} questions`, color: SOFT_WHITE, bold: true }],
     action: problem ? null : 'start',
     actionLabel: problem ? null : 'Start',
     history: props.recent,
-    footer: problem ? '' : 'Click Start to play',
   }
 }
 
 const outroPanel = (props: TriviaProps): PanelModel | null => {
   const game = props.game
   if (!game) return null
+
   const lines: PanelLine[] = [{
     text: `Final streak ${game.streak}${props.newBest ? ' · new best!' : ''}`,
     color: SOFT_WHITE,
@@ -257,7 +266,7 @@ const outroPanel = (props: TriviaProps): PanelModel | null => {
 
   if (game.phase === 'wrong' && game.round) {
     lines.push({
-      text: `Missed: ${game.round.question} -> ${game.round.answers[game.round.correctIndex]}`,
+      text: `Missed: ${game.round.question} → ${game.round.answers[game.round.correctIndex]}`,
       color: '#b9b2a2',
     })
   }
@@ -268,7 +277,6 @@ const outroPanel = (props: TriviaProps): PanelModel | null => {
     action: 'new',
     actionLabel: 'New game',
     history: props.recent.length > 0 ? props.recent : [game.streak],
-    footer: 'Click New game to play again',
   }
 }
 
@@ -301,12 +309,14 @@ const answerRows = (
   const game = props.game
   const round = game?.round
   if (!game || !round) return []
+
   const { Box, Button } = elements
   const rows: RenderElement[] = []
 
   for (const firstChoice of [0, 2] as const) {
     if (state.answersShown <= firstChoice) continue
     const cells: RenderElement[] = []
+
     for (const choiceValue of [firstChoice, firstChoice + 1] as const) {
       if (choiceValue >= 4) continue
       if (choiceValue >= state.answersShown) {
@@ -316,20 +326,35 @@ const answerRows = (
 
       const choice = choiceValue as Choice
       const answer = round.answers[choice] ?? ''
-      const backgroundColor = cardColorFor(props, choice, state)
+      const stateColor = cardColorFor(props, choice, state)
       cells.push(Box({
+        key: `answer-card-${choice}`,
         flexGrow: 1,
         minWidth: 0,
-        padding: 1,
-        ...(backgroundColor ? { backgroundColor } : {}),
+        paddingX: 1,
+        borderStyle: 'round',
+        borderColor: stateColor ?? AMBER,
+        backgroundColor: stateColor ?? CARD,
+        ...(!stateColor ? {
+          hover: { backgroundColor: CARD_HOVER, borderColor: BRIGHT_AMBER },
+        } : {}),
         children: [Button({
           key: `answer-${choice}`,
           label: `${String.fromCharCode(65 + choice)}. ${answer}`,
+          variant: 'secondary',
+          dimColor: false,
+          hover: { color: SOFT_WHITE, bold: true },
           onPress: () => onPick(choice),
         })],
       }))
     }
-    rows.push(Box({ flexDirection: 'row', alignItems: 'stretch', gap: 1, children: cells }))
+
+    rows.push(Box({
+      flexDirection: 'row',
+      alignItems: 'stretch',
+      gap: 1,
+      children: cells,
+    }))
   }
 
   return rows
@@ -367,34 +392,47 @@ const renderStage = (
   const visibleQuestion = phase === 'wrong' || phase === 'cleared'
     ? question
     : Array.from(question).slice(0, state.questionCharacters).join('')
+  const status = phase === 'asking'
+    ? 'Choose an answer'
+    : phase === 'locked'
+      ? 'Final answer...'
+      : phase === 'correct'
+        ? 'Correct!'
+        : phase === 'wrong'
+          ? 'Wrong'
+          : 'Cleared!'
+  const headerColor = phase === 'wrong'
+    ? RED
+    : phase === 'correct' || phase === 'cleared'
+      ? '#75d18a'
+      : phase === 'locked'
+        ? Math.floor((state.tick - state.phaseStartedAt) / 3) % 2 === 0
+          ? LOCKED_ONE
+          : LOCKED_TWO
+        : AMBER
+  const heading = round
+    ? `${round.category} · ${round.difficulty} · Streak ${game.streak} · ${status}`
+    : `Streak ${game.streak} · ${status}`
   const children: RenderElement[] = [
-    Text({
-      color: AMBER,
-      bold: true,
-      children: round
-        ? `${round.category} · ${round.difficulty} · Streak ${game.streak}`
-        : `Streak ${game.streak}`,
-    }),
-    Text({ color: SOFT_WHITE, bold: true, children: visibleQuestion }),
-    ...answerRows(elements, props, state, choice => {
-      const current = state.phaseKey
-      if (current === 'asking' && choice < state.answersShown) {
-        post({ type: 'pick', choice })
-      }
-    }),
+    Text({ color: headerColor, bold: true, wrap: 'truncate', children: heading }),
   ]
 
-  if (phase === 'asking') {
-    children.push(Text({ color: '#b9b2a2', children: 'Choose an answer' }))
-  } else if (phase === 'locked') {
-    const flash = Math.floor((state.tick - state.phaseStartedAt) / 3) % 2 === 0
+  if (visibleQuestion.length > 0) {
     children.push(Text({
-      color: flash ? LOCKED_ONE : LOCKED_TWO,
+      color: SOFT_WHITE,
       bold: true,
-      children: 'Final answer...',
+      wrap: 'truncate',
+      children: visibleQuestion,
     }))
-  } else if (phase === 'correct') {
-    children.push(Text({ color: '#75d18a', bold: true, children: `Correct! Streak ${game.streak}` }))
+  }
+
+  children.push(...answerRows(elements, props, state, choice => {
+    if (state.phaseKey === 'asking' && choice < state.answersShown) {
+      post({ type: 'pick', choice })
+    }
+  }))
+
+  if (phase === 'correct') {
     children.push(Box({
       flexDirection: 'row',
       justifyContent: 'center',
@@ -402,6 +440,7 @@ const renderStage = (
         key: 'next',
         label: 'Next',
         variant: 'primary',
+        dimColor: false,
         onPress: () => post({ type: 'next' }),
       })],
     }))
@@ -409,24 +448,36 @@ const renderStage = (
     if (round) {
       children.push(Text({
         color: RED,
+        wrap: 'truncate',
         children: `Correct answer: ${round.answers[round.correctIndex]}`,
       }))
     }
     children.push(Box({
       flexDirection: 'row',
       justifyContent: 'center',
-      children: [Button({ key: 'continue', label: 'Continue', onPress: showOutro })],
+      children: [Button({
+        key: 'continue',
+        label: 'Continue',
+        variant: 'primary',
+        dimColor: false,
+        onPress: showOutro,
+      })],
     }))
   } else if (phase === 'cleared') {
-    children.push(Text({ color: SOFT_WHITE, children: `You answered all ${game.roundCount} questions!` }))
     children.push(Box({
       flexDirection: 'row',
       justifyContent: 'center',
-      children: [Button({ key: 'continue', label: 'Continue', onPress: showOutro })],
+      children: [Button({
+        key: 'continue',
+        label: 'Continue',
+        variant: 'primary',
+        dimColor: false,
+        onPress: showOutro,
+      })],
     }))
   }
 
-  return Box({ flexDirection: 'column', gap: 1, flexGrow: 1, children })
+  return Box({ flexDirection: 'column', gap: 0, flexGrow: 1, children })
 }
 
 const DesktopStage: ClientModule<TriviaProps, DesktopStageState> = (props, surface) => {

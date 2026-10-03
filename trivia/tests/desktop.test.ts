@@ -91,16 +91,22 @@ test('mounts a desktop view and plays a full streak round with native buttons', 
     const client = await ui.find({ key: 'stage' })
     const idleSvg = await ui.find({ type: 'Svg' })
     expect(client?.props.module).toMatch(/stage-desktop\.tsx$/)
+    expect(client?.props.props).toMatchObject({ maxRows: 11 })
     expect(sourceOf(idleSvg).length < 131_072).toBe(true)
+    expect(sourceOf(idleSvg).includes('background-color:transparent')).toBe(true)
     expect(idleSvg?.props.alt).toBe('Clawd waves hello before the trivia game starts.')
     expect(sourceOf(idleSvg).includes('#d97757')).toBe(true)
+    expect(idleSvg?.props.isInteractive).toBeUndefined()
 
     await ui.press({ key: 'start' })
     expect(triviaProps(await ui.find({ key: 'stage' })).game?.phase).toBe('asking')
+    expect(await ui.find({ type: 'Text', text: /^$/, in: 'stage' })).toBeUndefined()
     const askingSvg = await ui.find({ type: 'Svg' })
     expect(sourceOf(askingSvg)).not.toBe(sourceOf(idleSvg))
+    expect(sourceOf(askingSvg).length < 131_072).toBe(true)
     expect(sourceOf(askingSvg).includes('<animateTransform')).toBe(true)
-    expect(askingSvg?.props.isInteractive).toBe(true)
+    expect(askingSvg?.props.isInteractive).toBeUndefined()
+    expect(await ui.find({ type: 'Text', text: /Choose an answer/, in: 'stage' })).toBeDefined()
 
     await ui.advance(70)
     expect(await ui.find({ type: 'Text', text: /^Que$/, in: 'stage' })).toBeDefined()
@@ -113,19 +119,46 @@ test('mounts a desktop view and plays a full streak round with native buttons', 
     for (const key of ['answer-0', 'answer-1', 'answer-2', 'answer-3']) {
       expect(await ui.find({ key, in: 'stage' })).toBeDefined()
     }
+    expect(await ui.find({ type: 'Text', text: /Choose an answer/, in: 'stage' })).toBeDefined()
+    expect(await ui.find({
+      type: 'Text',
+      text: /^Test questions · easy · Streak 0 · Choose an answer$/,
+      in: 'stage',
+    })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^Choose an answer$/, in: 'stage' })).toBeUndefined()
+    for (const choice of [0, 1, 2, 3]) {
+      const card = await ui.find({ key: `answer-card-${choice}`, in: 'stage' })
+      const button = await ui.find({ key: `answer-${choice}`, in: 'stage' })
+      expect(card?.props.flexGrow).toBe(1)
+      expect(card?.props.backgroundColor).toBe('#302a20')
+      expect(card?.props.borderStyle).toBe('round')
+      expect(button?.props.variant).toBe('secondary')
+      expect(button?.props.dimColor).toBe(false)
+    }
 
     const firstRound = triviaProps(await ui.find({ key: 'stage' })).game!.round!
     const firstRoundId = triviaProps(await ui.find({ key: 'stage' })).game!.roundId
     await ui.press({ key: `answer-${firstRound.correctIndex}` })
     expect(triviaProps(await ui.find({ key: 'stage' })).game?.phase).toBe('locked')
+    expect((await ui.find({ key: `answer-card-${firstRound.correctIndex}`, in: 'stage' }))
+      ?.props.backgroundColor).toBe('#c7771b')
+    await ui.advance(3 * 70)
+    expect((await ui.find({ key: `answer-card-${firstRound.correctIndex}`, in: 'stage' }))
+      ?.props.backgroundColor).toBe('#e3a32d')
     const lockedSvg = await ui.find({ type: 'Svg' })
     expect(sourceOf(lockedSvg)).not.toBe(sourceOf(askingSvg))
-    await ui.advance(26 * 70)
+    expect(sourceOf(lockedSvg).length < 131_072).toBe(true)
+    await ui.advance(23 * 70)
     const correctGame = triviaProps(await ui.find({ key: 'stage' })).game!
     expect(correctGame.phase).toBe('correct')
     expect(correctGame.streak).toBe(1)
+    expect((await ui.find({
+      key: `answer-card-${firstRound.correctIndex}`,
+      in: 'stage',
+    }))?.props.backgroundColor).toBe('#28783d')
     const correctSvg = await ui.find({ type: 'Svg' })
     expect(correctSvg?.props.alt).toBe('Clawd jumps with both arms raised after a correct answer.')
+    expect(sourceOf(correctSvg).length < 131_072).toBe(true)
     expect(sourceOf(correctSvg).includes('<animateTransform')).toBe(false)
 
     await ui.press({ key: 'next' })
@@ -141,9 +174,14 @@ test('mounts a desktop view and plays a full streak round with native buttons', 
     const wrongGame = triviaProps(await ui.find({ key: 'stage' })).game!
     expect(wrongGame.phase).toBe('wrong')
     expect(wrongGame.streak).toBe(1)
+    expect((await ui.find({ key: `answer-card-${wrongRound.correctIndex}`, in: 'stage' }))
+      ?.props.backgroundColor).toBe('#28783d')
+    expect((await ui.find({ key: `answer-card-${wrongChoice}`, in: 'stage' }))
+      ?.props.backgroundColor).toBe('#a93636')
     const wrongSvg = await ui.find({ type: 'Svg' })
     expect(wrongSvg?.props.alt)
       .toBe('Clawd lowers both arms and closes its eyes after a wrong answer.')
+    expect(sourceOf(wrongSvg).length < 131_072).toBe(true)
 
     await ui.advance(36 * 70)
     expect(await ui.find({ type: 'Text', text: /GAME OVER/, in: 'stage' })).toBeDefined()
@@ -206,6 +244,7 @@ test('cleared Desktop games show the outro after the matching delay', async ($, 
     const clearedSvg = await ui.find({ type: 'Svg' })
     expect(clearedSvg?.props.alt)
       .toBe('Clawd jumps with both arms raised after clearing the trivia.')
+    expect(sourceOf(clearedSvg).length < 131_072).toBe(true)
 
     await ui.advance(36 * 70)
     expect(await ui.find({ type: 'Text', text: /ALL CLEARED!/, in: 'stage' })).toBeDefined()
