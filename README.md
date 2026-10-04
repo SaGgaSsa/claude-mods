@@ -143,15 +143,15 @@ A band above the prompt that follows the work Claude hands off, in the look of
 yira (black, red accent, uppercase mono labels).
 It shows up by itself while there is something to show; no command.
 
-- **SUBTAREAS** (left): the session's task list (`TaskCreate`/`TaskUpdate`, or
+- **SUBTAREAS** (top): the session's task list (`TaskCreate`/`TaskUpdate`, or
   `TodoWrite`), with the step in progress in red.
-- **SUBAGENTES** (right): Claude subagents (`Agent` tool) with their model
+- **SUBAGENTES** (below): Claude subagents (`Agent` tool) with their model
   (`SONNET 5.5`), and Codex runs started from Bash with `codex exec`, with the
   model, effort and fast mode read from the command (`GPT-6-LUNA · MAX · FAST`).
   Each one shows how long it has run, live while it works and fixed once done.
 - For a background Codex run the end time comes from its output file, so a
   notification delivered late doesn't stretch the time.
-- Below 80 columns the two lists stack, subtasks on top. `LIMPIAR` drops the
+- One column, so labels, model and time fit. `LIMPIAR` drops the
   finished agents and completed subtasks; finished agents also go away 10 minutes
   after they end, at the next prompt.
 

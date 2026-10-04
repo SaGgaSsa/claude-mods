@@ -83,7 +83,7 @@ test('renders and tracks Claude and Codex agents, including narrow layout and cl
   })
 
   let wideText = treeText(await wide.drawn())
-  expectBodyDirection(await wide.drawn(), 'row')
+  expectBodyDirection(await wide.drawn(), 'column')
   expect(wideText).toContain('SUBTAREAS 0/1')
   expect(wideText).toContain('Inspecting hooks')
   expect(wideText).toContain('SONNET 5.5')

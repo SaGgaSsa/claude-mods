@@ -142,13 +142,17 @@ const drawAgent = (
   const prefix = depth > 0 ? `${'  '.repeat(depth - 1)}  └ ` : ''
 
   return (
-    <Box width={width} flexDirection="row" alignItems="center">
-      <Text color={markerColor}>{marker} </Text>
-      <Box flexGrow={1} minWidth={1} overflow="hidden">
+    <Box width={width} flexDirection="row">
+      <Box flexShrink={0}>
+        <Text color={markerColor}>{marker} </Text>
+      </Box>
+      <Box flexGrow={1} flexShrink={1} minWidth={1} overflow="hidden">
         <Text color={labelColor} wrap="truncate-end">{prefix}{agent.label}</Text>
       </Box>
-      <Text color={GRAY} wrap="truncate-start">{formatAgentMeta(agent)}</Text>
-      <Text color={timeColor}>{`  ${formatElapsed(end - agent.startedAt)}`}</Text>
+      <Box flexShrink={0}>
+        <Text color={GRAY}>{`  ${formatAgentMeta(agent)}`}</Text>
+        <Text color={timeColor}>{`  ${formatElapsed(end - agent.startedAt)}`}</Text>
+      </Box>
     </Box>
   )
 }
@@ -176,39 +180,8 @@ const drawAgentRows = (
   return drawAgent(elements, row.item, now, width)
 })
 
-const drawWide = (
-  elements: BandElements,
-  props: BandProps,
-  rowsLimit: number,
-): RenderElement => {
-  const { Box, Text } = elements
-  const separatorWidth = 1
-  const leftWidth = Math.floor((props.bodyColumns - separatorWidth) / 2)
-  const rightWidth = props.bodyColumns - leftWidth - separatorWidth
-  const taskRows = visibleRows(props.subtasks, Math.min(6, rowsLimit))
-  const agentRows = visibleRows(orderAgents(props.agents), Math.min(6, rowsLimit))
-  const rowCount = Math.max(taskRows.length, agentRows.length)
-  const left = drawTaskRows(elements, taskRows, leftWidth)
-  const right = drawAgentRows(elements, agentRows, props.now, rightWidth)
-
-  return (
-    <Box width={props.bodyColumns} flexDirection="row" alignItems="stretch">
-      <Box width={leftWidth} flexDirection="column">
-        <Text color={GRAY} bold wrap="truncate-end">{subtaskHeading(props.subtasks)}</Text>
-        {left}
-      </Box>
-      <Box width={separatorWidth} flexDirection="column">
-        {Array.from({ length: rowCount + 1 }, () => <Text color={DIM}>│</Text>)}
-      </Box>
-      <Box width={rightWidth} flexDirection="column">
-        <Text color={GRAY} bold wrap="truncate-end">{agentHeading(props.agents)}</Text>
-        {right}
-      </Box>
-    </Box>
-  )
-}
-
-const drawNarrow = (
+// One column: subtasks on top, agents below.
+const drawColumn = (
   elements: BandElements,
   props: BandProps,
   maxRows: number,
@@ -246,18 +219,13 @@ export const buildBand = (elements: BandElements, props: BandProps): RenderEleme
   if (maxRows === 0) return <Box />
 
   const hasHeader = maxRows > 1
-  const bodyRows = Math.max(0, maxRows - 2)
 
   return (
     <Box width={props.bodyColumns} flexDirection="column" flexShrink={0}>
       <Box width={props.bodyColumns} flexDirection="row" justifyContent="flex-end">
         <Button key="clear" label="LIMPIAR" plain dimColor onPress={props.onClear} />
       </Box>
-      {hasHeader && props.bodyColumns >= 80
-        ? drawWide(elements, props, bodyRows)
-        : hasHeader
-          ? drawNarrow(elements, props, maxRows)
-          : <Box />}
+      {hasHeader ? drawColumn(elements, props, maxRows) : <Box />}
     </Box>
   )
 }
