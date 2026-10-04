@@ -151,7 +151,7 @@ It shows up by itself while there is something to show; no command.
   Each one shows how long it has run, live while it works and fixed once done.
 - For a background Codex run the end time comes from its output file, so a
   notification delivered late doesn't stretch the time.
-- One column, so labels, model and time fit. `LIMPIAR` drops the
+- One column, so labels, model and time fit. `CLEAR` drops the
   finished agents and completed subtasks; finished agents also go away 10 minutes
   after they end, at the next prompt.
 
