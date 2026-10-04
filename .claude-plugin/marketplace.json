@@ -15,6 +15,11 @@
       "name": "trivia",
       "source": "./trivia",
       "description": "A quiz-show question ladder in the band above the prompt, played by clicking"
+    },
+    {
+      "name": "yira-agents",
+      "source": "./yira-agents",
+      "description": "A band above the prompt with the session's subtasks and delegated agents: Claude subagents and Codex runs, with model and elapsed time"
     }
   ]
 }
