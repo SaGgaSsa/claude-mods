@@ -84,12 +84,12 @@ test('renders and tracks Claude and Codex agents, including narrow layout and cl
 
   let wideText = treeText(await wide.drawn())
   expectBodyDirection(await wide.drawn(), 'column')
-  expect(wideText).toContain('SUBTAREAS 0/1')
+  expect(wideText).toContain('TASKS 0/1')
   expect(wideText).toContain('Inspecting hooks')
   expect(wideText).toContain('SONNET 5.5')
   expect(wideText).toContain('01:05')
-  expect(wideText).toContain('SUBTAREAS')
-  expect(wideText).toContain('SUBAGENTES')
+  expect(wideText).toContain('TASKS')
+  expect(wideText).toContain('SUBAGENTS')
 
   await $.tool.call({
     tool: 'Bash',
@@ -101,13 +101,13 @@ test('renders and tracks Claude and Codex agents, including narrow layout and cl
   wideText = treeText(await wide.drawn())
   expect(wideText).toContain('GPT-6-LUNA · MAX · FAST')
   expect(wideText).toContain('00:40')
-  expect(wideText).toContain('SUBAGENTES 1 ACTIVO')
+  expect(wideText).toContain('SUBAGENTS 1 ACTIVE')
 
   await $.tool.call({ tool: 'TaskStop', task_id: 'bg1' })
   await clock.advance(61_000)
   wideText = treeText(await wide.drawn())
   expect(wideText).toContain('00:40')
-  expect(wideText).toContain('SUBAGENTES SIN ACTIVOS')
+  expect(wideText).toContain('SUBAGENTS NONE ACTIVE')
   expect(wideText).toContain('✕')
 
   await $.tool.call({
@@ -119,8 +119,8 @@ test('renders and tracks Claude and Codex agents, including narrow layout and cl
   const narrowTree = await narrow.drawn()
   const narrowText = treeText(narrowTree)
   expectBodyDirection(narrowTree, 'column')
-  expect(narrowText).toContain('SUBTAREAS')
-  expect(narrowText).toContain('SUBAGENTES')
+  expect(narrowText).toContain('TASKS')
+  expect(narrowText).toContain('SUBAGENTS')
 
   await narrow.press({ key: 'clear' })
   expect(treeText(await narrow.drawn())).toContain('Engine output')

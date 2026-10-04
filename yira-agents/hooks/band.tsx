@@ -89,13 +89,13 @@ const orderAgents = (agents: readonly TrackedAgent[]): { agent: TrackedAgent; de
 
 const subtaskHeading = (subtasks: readonly Subtask[]): string => {
   const completed = subtasks.filter(task => task.status === 'completed').length
-  return `SUBTAREAS ${completed}/${subtasks.length}`
+  return `TASKS ${completed}/${subtasks.length}`
 }
 
 const agentHeading = (agents: readonly TrackedAgent[]): string => {
   const active = agents.filter(agent => agent.status === 'running').length
-  if (active === 0) return 'SUBAGENTES SIN ACTIVOS'
-  return `SUBAGENTES ${active} ${active === 1 ? 'ACTIVO' : 'ACTIVOS'}`
+  if (active === 0) return 'SUBAGENTS NONE ACTIVE'
+  return `SUBAGENTS ${active} ACTIVE`
 }
 
 const drawSubtask = (
