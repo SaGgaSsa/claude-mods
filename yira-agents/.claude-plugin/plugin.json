@@ -1,7 +1,0 @@
-{
-  "name": "yira-agents",
-  "version": "0.1.3",
-  "description": "A band above the prompt with the session's subtasks and delegated agents (Claude subagents, Codex runs), their model and elapsed time",
-  "author": { "name": "SaGgaSsa" },
-  "types": "./types/index.d.ts"
-}
