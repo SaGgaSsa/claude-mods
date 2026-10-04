@@ -45,7 +45,7 @@ const visibleRows = <T,>(items: readonly T[], limit: number): VisibleRow<T>[] =>
 
 const rowText = (row: { kind: 'empty' } | { kind: 'more'; count: number }): string => {
   if (row.kind === 'empty') return '—'
-  return `+${row.count} más`
+  return `+${row.count} more`
 }
 
 const orderAgents = (agents: readonly TrackedAgent[]): { agent: TrackedAgent; depth: number }[] => {
@@ -223,7 +223,7 @@ export const buildBand = (elements: BandElements, props: BandProps): RenderEleme
   return (
     <Box width={props.bodyColumns} flexDirection="column" flexShrink={0}>
       <Box width={props.bodyColumns} flexDirection="row" justifyContent="flex-end">
-        <Button key="clear" label="LIMPIAR" plain dimColor onPress={props.onClear} />
+        <Button key="clear" label="CLEAR" plain dimColor onPress={props.onClear} />
       </Box>
       {hasHeader ? drawColumn(elements, props, maxRows) : <Box />}
     </Box>
