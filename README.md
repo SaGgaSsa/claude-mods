@@ -15,7 +15,6 @@ Inside Claude Code:
 /plugin marketplace add SaGgaSsa/claude-mods
 /plugin install sudoku@claude-mods
 /plugin install trivia@claude-mods
-/plugin install yira-agents@claude-mods
 /reload-plugins
 ```
 
@@ -25,7 +24,6 @@ Or from a shell:
 claude plugin marketplace add SaGgaSsa/claude-mods
 claude plugin install sudoku@claude-mods
 claude plugin install trivia@claude-mods
-claude plugin install yira-agents@claude-mods
 ```
 
 ### From a local clone
@@ -35,7 +33,6 @@ git clone git@github.com:SaGgaSsa/claude-mods.git
 /plugin marketplace add ./claude-mods
 /plugin install sudoku@claude-mods
 /plugin install trivia@claude-mods
-/plugin install yira-agents@claude-mods
 /reload-plugins
 ```
 
@@ -45,7 +42,6 @@ git clone git@github.com:SaGgaSsa/claude-mods.git
 /plugin marketplace update claude-mods
 /plugin uninstall sudoku@claude-mods
 /plugin uninstall trivia@claude-mods
-/plugin uninstall yira-agents@claude-mods
 ```
 
 `/plugin` opens the plugin manager, where you can also enable, disable or update each mod.
@@ -55,7 +51,6 @@ git clone git@github.com:SaGgaSsa/claude-mods.git
 ```
 claude --plugin-dir ./sudoku
 claude --plugin-dir ./trivia
-claude --plugin-dir ./yira-agents
 ```
 
 The mod loads for that session only and reloads when its files change.
@@ -136,24 +131,6 @@ capped at 1000). `trivia/scripts/fetch-questions.ps1` adds questions from
 [Open Trivia DB](https://opentdb.com/) instead; it skips duplicates, refuses to
 run on a full bank, and its questions lean on US topics and niche fandoms.
 Restart Claude Code or run `/reload-plugins` to load the changes.
-
-## yira-agents
-
-A band above the prompt that follows the work Claude hands off, in the look of
-yira (black, red accent, uppercase mono labels).
-It shows up by itself while there is something to show; no command.
-
-- **TASKS** (top): the session's task list (`TaskCreate`/`TaskUpdate`, or
-  `TodoWrite`), with the step in progress in red.
-- **SUBAGENTS** (below): Claude subagents (`Agent` tool) with their model
-  (`SONNET 5.5`), and Codex runs started from Bash with `codex exec`, with the
-  model, effort and fast mode read from the command (`GPT-6-LUNA · MAX · FAST`).
-  Each one shows how long it has run, live while it works and fixed once done.
-- For a background Codex run the end time comes from its output file, so a
-  notification delivered late doesn't stretch the time.
-- One column, so labels, model and time fit. `CLEAR` drops the
-  finished agents and completed subtasks; finished agents also go away 10 minutes
-  after they end, at the next prompt.
 
 ## Adding a mod
 
