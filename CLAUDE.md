@@ -24,7 +24,7 @@ Loading a mod (`--plugin-dir` or hot reload) makes the engine write `<mod>/.clau
 name (`'ui.message'`, `ClientSurface`, `RasterProps`) rather than guessing.
 
 Install for users: see README.md (`/plugin marketplace add SaGgaSsa/claude-mods`, then
-`/plugin install <mod>@claude-mods`).
+`/plugin install <mod>@claude-mods-saggassa`).
 
 ## Anatomy of a mod
 
