@@ -3,7 +3,7 @@
 [Claude Code mods](https://claude.com/blog/claude-code-mods) by SaGgaSsa.
 
 Mods are plugins of function hooks that run inside Claude Code. This repository is a
-plugin marketplace: add it once, then install the mods you want.
+plugin marketplace named `claude-mods-saggassa`: add it once, then install the mods you want.
 
 ## Install
 
@@ -13,8 +13,8 @@ Inside Claude Code:
 
 ```
 /plugin marketplace add SaGgaSsa/claude-mods
-/plugin install sudoku@claude-mods
-/plugin install trivia@claude-mods
+/plugin install sudoku@claude-mods-saggassa
+/plugin install trivia@claude-mods-saggassa
 /reload-plugins
 ```
 
@@ -22,8 +22,8 @@ Or from a shell:
 
 ```
 claude plugin marketplace add SaGgaSsa/claude-mods
-claude plugin install sudoku@claude-mods
-claude plugin install trivia@claude-mods
+claude plugin install sudoku@claude-mods-saggassa
+claude plugin install trivia@claude-mods-saggassa
 ```
 
 ### From a local clone
@@ -31,17 +31,17 @@ claude plugin install trivia@claude-mods
 ```
 git clone git@github.com:SaGgaSsa/claude-mods.git
 /plugin marketplace add ./claude-mods
-/plugin install sudoku@claude-mods
-/plugin install trivia@claude-mods
+/plugin install sudoku@claude-mods-saggassa
+/plugin install trivia@claude-mods-saggassa
 /reload-plugins
 ```
 
 ### Update and remove
 
 ```
-/plugin marketplace update claude-mods
-/plugin uninstall sudoku@claude-mods
-/plugin uninstall trivia@claude-mods
+/plugin marketplace update claude-mods-saggassa
+/plugin uninstall sudoku@claude-mods-saggassa
+/plugin uninstall trivia@claude-mods-saggassa
 ```
 
 `/plugin` opens the plugin manager, where you can also enable, disable or update each mod.
