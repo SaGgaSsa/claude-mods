@@ -5,6 +5,8 @@ export type ModelConfig = { model: string; variant: string }
 export type Catalog = {
   models: string[]
   variants: Record<string, string[]>
+  // Why the variants could not be loaded, or null.
+  variantsError: string | null
 }
 
 declare module 'claude-code' {

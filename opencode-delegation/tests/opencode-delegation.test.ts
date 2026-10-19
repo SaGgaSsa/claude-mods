@@ -36,6 +36,7 @@ const PANE_PROPS = {
 
 type Stubs = {
   api?: unknown
+  variantsFail?: boolean
   stdout?: string
   version?: () => string | null
   throwVersion?: boolean
@@ -83,11 +84,14 @@ const wire = (on: On, files: Record<string, string>, stubs: Stubs = {}) => {
         ? runResult(1, '', 'opencode: not found')
         : runResult(0, `${version}\n`)
     }
+    if (e.argv[0] === 'node') {
+      expect(e.argv[1]?.endsWith('scripts/variants.mjs')).toBe(true)
+      return stubs.variantsFail
+        ? runResult(1, '', 'models.dev answered 503')
+        : runResult(0, JSON.stringify(stubs.api ?? API))
+    }
     return runResult(0, stubs.stdout ?? MODELS_STDOUT)
   })
-  on('http.fetch', () => ({
-    value: { status: 200, ok: true, headers: {}, text: JSON.stringify(stubs.api ?? API) },
-  }))
 }
 
 // Opens the pane, then refreshes so the load the command started is settled.
@@ -282,7 +286,22 @@ test('runs opencode --version and models through cmd.exe on Windows', async ($, 
 
   expect(argvs).toContainEqual(['cmd', '/c', 'opencode', '--version'])
   expect(argvs).toContainEqual(['cmd', '/c', 'opencode', 'models'])
-  expect(argvs.every(argv => argv[0] === 'cmd' && argv[1] === '/c' && argv[2] === 'opencode'))
-    .toBe(true)
+  const opencodeRuns = argvs.filter(argv => argv.includes('opencode'))
+  expect(opencodeRuns.every(argv => argv[0] === 'cmd' && argv[1] === '/c')).toBe(true)
+  // The variants come from node, which runs directly, with the catalog's models.
+  expect(argvs.find(argv => argv[0] === 'node')?.slice(2)).toEqual(['opencode/a-free', 'opencode/b-free'])
+  await ui.unmount()
+})
+
+test('the pane says why the variants could not be loaded', async ($, on) => {
+  const files: Record<string, string> = {
+    [CONFIG_PATH]: formatConfig({ model: 'opencode/a-free', variant: 'max' }),
+  }
+  wire(on, files, { variantsFail: true })
+  const ui = await open($)
+
+  expect(await ui.find({ type: 'Text', text: /variants unavailable: models.dev answered 503/ })).toBeDefined()
+  expect(await ui.find({ key: 'variant:none' })).toBeDefined()
+  expect(await ui.find({ key: 'variant:max' })).toBeUndefined()
   await ui.unmount()
 })
