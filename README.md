@@ -15,7 +15,7 @@ Inside Claude Code:
 /plugin marketplace add SaGgaSsa/claude-mods
 /plugin install sudoku@claude-mods-saggassa
 /plugin install trivia@claude-mods-saggassa
-/plugin install opencode-model@claude-mods-saggassa
+/plugin install opencode-delegation@claude-mods-saggassa
 /reload-plugins
 ```
 
@@ -25,7 +25,7 @@ Or from a shell:
 claude plugin marketplace add SaGgaSsa/claude-mods
 claude plugin install sudoku@claude-mods-saggassa
 claude plugin install trivia@claude-mods-saggassa
-claude plugin install opencode-model@claude-mods-saggassa
+claude plugin install opencode-delegation@claude-mods-saggassa
 ```
 
 ### From a local clone
@@ -35,7 +35,7 @@ git clone git@github.com:SaGgaSsa/claude-mods.git
 /plugin marketplace add ./claude-mods
 /plugin install sudoku@claude-mods-saggassa
 /plugin install trivia@claude-mods-saggassa
-/plugin install opencode-model@claude-mods-saggassa
+/plugin install opencode-delegation@claude-mods-saggassa
 /reload-plugins
 ```
 
@@ -45,7 +45,7 @@ git clone git@github.com:SaGgaSsa/claude-mods.git
 /plugin marketplace update claude-mods-saggassa
 /plugin uninstall sudoku@claude-mods-saggassa
 /plugin uninstall trivia@claude-mods-saggassa
-/plugin uninstall opencode-model@claude-mods-saggassa
+/plugin uninstall opencode-delegation@claude-mods-saggassa
 ```
 
 `/plugin` opens the plugin manager, where you can also enable, disable or update each mod.
@@ -55,7 +55,7 @@ git clone git@github.com:SaGgaSsa/claude-mods.git
 ```
 claude --plugin-dir ./sudoku
 claude --plugin-dir ./trivia
-claude --plugin-dir ./opencode-model
+claude --plugin-dir ./opencode-delegation
 ```
 
 The mod loads for that session only and reloads when its files change.
@@ -137,14 +137,14 @@ capped at 1000). `trivia/scripts/fetch-questions.ps1` adds questions from
 run on a full bank, and its questions lean on US topics and niche fandoms.
 Restart Claude Code or run `/reload-plugins` to load the changes.
 
-## opencode-model
+## opencode-delegation
 
 A pane to see and change the model and variant (effort) that the OpenCode
 delegation uses. The delegation script reads `~/.codex/opencode-model.json`, so
 the pane writes that file and nothing else.
 
 ```
-/opencode-model
+/opencode-delegation
 ```
 
 - The first line shows the current pick, for example

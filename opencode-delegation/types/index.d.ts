@@ -9,7 +9,7 @@ export type Catalog = {
 
 declare module 'claude-code' {
   interface PluginState {
-    'opencode-model': {
+    'opencode-delegation': {
       config: ModelConfig | null
       catalog: Catalog | null
       installed: { version: string } | null

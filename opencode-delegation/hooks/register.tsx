@@ -12,15 +12,15 @@ import {
   variantsFor,
 } from './catalog'
 
-const PANE = 'opencode-model'
+const PANE = 'opencode-delegation'
 const CONFIG_FILE = '/.codex/opencode-model.json'
 const HOME_MISSING = 'USERPROFILE and HOME are both unset'
 
-const config = atom({ plugin: 'opencode-model', key: 'config' } as const, null)
-const catalog = atom({ plugin: 'opencode-model', key: 'catalog' } as const, null)
-const installed = atom({ plugin: 'opencode-model', key: 'installed' } as const, null)
-const error = atom({ plugin: 'opencode-model', key: 'error' } as const, null)
-const isLoading = atom({ plugin: 'opencode-model', key: 'isLoading' } as const, false)
+const config = atom({ plugin: 'opencode-delegation', key: 'config' } as const, null)
+const catalog = atom({ plugin: 'opencode-delegation', key: 'catalog' } as const, null)
+const installed = atom({ plugin: 'opencode-delegation', key: 'installed' } as const, null)
+const error = atom({ plugin: 'opencode-delegation', key: 'error' } as const, null)
+const isLoading = atom({ plugin: 'opencode-delegation', key: 'isLoading' } as const, false)
 
 const messageOf = (cause: unknown): string =>
   cause instanceof Error ? cause.message : String(cause)
@@ -152,16 +152,16 @@ const chooseVariant = async ($: EngineInterface, variant: string): Promise<void>
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     await $.command.register({
-      name: 'opencode-model',
+      name: 'opencode-delegation',
       description: 'Pick the OpenCode delegation model and variant',
     })
     return next(e)
   })
 
-  on('command.run', { command: 'opencode-model' }, async $ => {
-    await $.ui.open({ id: PANE, title: 'OpenCode model' })
+  on('command.run', { command: 'opencode-delegation' }, async $ => {
+    await $.ui.open({ id: PANE, title: 'OpenCode delegation' })
     void load($)
-    return { text: 'OpenCode model pane opened.' }
+    return { text: 'OpenCode delegation pane opened.' }
   })
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
