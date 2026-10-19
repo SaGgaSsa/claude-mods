@@ -157,8 +157,10 @@ the pane writes that file and nothing else.
   a dot. Click a model to switch: the pane keeps the current variant when the
   new model also offers it, else it picks `max`, else the last one it knows.
 - `Variant` lists the effort variants models.dev knows for the current model,
-  plus `none` to leave the variant empty. With no known variants it says
-  `variants unavailable` and offers only `none`.
+  plus `none` to leave the variant empty. `node` fetches them
+  (`scripts/variants.mjs`), since the full models.dev API is too big for the
+  mod. With no known variants it says `variants unavailable`, with the reason,
+  and offers only `none`.
 - When the saved model is no longer in the catalog (free models come and go) a
   red line asks you to pick another.
 - `Refresh` rereads the config file, `opencode models` and the models.dev
