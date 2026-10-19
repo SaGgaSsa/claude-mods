@@ -26,7 +26,7 @@ const API = {
 }
 
 const PANE_PROPS = {
-  title: 'OpenCode model',
+  title: 'OpenCode delegation',
   isFocused: true,
   bodyColumns: 60,
   placement: 'inline',
@@ -92,18 +92,18 @@ const wire = (on: On, files: Record<string, string>, stubs: Stubs = {}) => {
 
 // Opens the pane, then refreshes so the load the command started is settled.
 const open = async ($: Engine) => {
-  await $.session.start({ cwd: '/work/opencode-model', surface: 'terminal', isInteractive: true })
+  await $.session.start({ cwd: '/work/opencode-delegation', surface: 'terminal', isInteractive: true })
   await $.command.run({
-    command: 'opencode-model',
+    command: 'opencode-delegation',
     args: '',
     origin: { kind: 'composer' },
     presentation: { isFullscreen: false, columns: 120 },
   })
   const ui = await $.ui.mount({
-    plugin: 'opencode-model',
+    plugin: 'opencode-delegation',
     surface: 'terminal',
     component: 'Pane',
-    requestId: 'opencode-model',
+    requestId: 'opencode-delegation',
     props: PANE_PROPS,
   })
   await ui.press({ key: 'refresh' })

@@ -17,8 +17,8 @@
       "description": "A quiz-show question ladder in the band above the prompt, played by clicking"
     },
     {
-      "name": "opencode-model",
-      "source": "./opencode-model",
+      "name": "opencode-delegation",
+      "source": "./opencode-delegation",
       "description": "Pick the model and variant used for OpenCode delegation, in a pane"
     }
   ]
