@@ -15,6 +15,7 @@ Inside Claude Code:
 /plugin marketplace add SaGgaSsa/claude-mods
 /plugin install sudoku@claude-mods-saggassa
 /plugin install trivia@claude-mods-saggassa
+/plugin install opencode-model@claude-mods-saggassa
 /reload-plugins
 ```
 
@@ -24,6 +25,7 @@ Or from a shell:
 claude plugin marketplace add SaGgaSsa/claude-mods
 claude plugin install sudoku@claude-mods-saggassa
 claude plugin install trivia@claude-mods-saggassa
+claude plugin install opencode-model@claude-mods-saggassa
 ```
 
 ### From a local clone
@@ -33,6 +35,7 @@ git clone git@github.com:SaGgaSsa/claude-mods.git
 /plugin marketplace add ./claude-mods
 /plugin install sudoku@claude-mods-saggassa
 /plugin install trivia@claude-mods-saggassa
+/plugin install opencode-model@claude-mods-saggassa
 /reload-plugins
 ```
 
@@ -42,6 +45,7 @@ git clone git@github.com:SaGgaSsa/claude-mods.git
 /plugin marketplace update claude-mods-saggassa
 /plugin uninstall sudoku@claude-mods-saggassa
 /plugin uninstall trivia@claude-mods-saggassa
+/plugin uninstall opencode-model@claude-mods-saggassa
 ```
 
 `/plugin` opens the plugin manager, where you can also enable, disable or update each mod.
@@ -51,6 +55,7 @@ git clone git@github.com:SaGgaSsa/claude-mods.git
 ```
 claude --plugin-dir ./sudoku
 claude --plugin-dir ./trivia
+claude --plugin-dir ./opencode-model
 ```
 
 The mod loads for that session only and reloads when its files change.
@@ -131,6 +136,35 @@ capped at 1000). `trivia/scripts/fetch-questions.ps1` adds questions from
 [Open Trivia DB](https://opentdb.com/) instead; it skips duplicates, refuses to
 run on a full bank, and its questions lean on US topics and niche fandoms.
 Restart Claude Code or run `/reload-plugins` to load the changes.
+
+## opencode-model
+
+A pane to see and change the model and variant (effort) that the OpenCode
+delegation uses. The delegation script reads `~/.codex/opencode-model.json`, so
+the pane writes that file and nothing else.
+
+```
+/opencode-model
+```
+
+- The first line shows the current pick, for example
+  `Current: opencode/deepseek-v4.1-flash-free#max`; with no file yet it shows
+  the path it will write.
+- The pane checks `opencode --version` first. Without OpenCode it shows how to
+  install it (`npm i -g @opencode/cli`), the docs link and a `Check again`
+  button instead of any model list.
+- `Models` lists what `opencode models` answers, and marks the current one with
+  a dot. Click a model to switch: the pane keeps the current variant when the
+  new model also offers it, else it picks `max`, else the last one it knows.
+- `Variant` lists the effort variants models.dev knows for the current model,
+  plus `none` to leave the variant empty. With no known variants it says
+  `variants unavailable` and offers only `none`.
+- When the saved model is no longer in the catalog (free models come and go) a
+  red line asks you to pick another.
+- `Refresh` rereads the config file, `opencode models` and the models.dev
+  lookup.
+- It needs `USERPROFILE` or `HOME` to find the config file; with both unset it
+  shows an error and neither reads nor writes the file.
 
 ## Adding a mod
 
