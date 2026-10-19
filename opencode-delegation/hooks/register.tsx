@@ -69,19 +69,25 @@ const listModels = async ($: EngineInterface): Promise<string[]> => {
   return parseModels(result.stdout)
 }
 
-// The API only says which variants exist; without it the pane offers none.
+// models.dev says which variants exist. Its API is too big for one call into the
+// mod, so scripts/variants.mjs fetches it with node and prints only these models.
+// Without it the pane offers none and says why.
 const loadVariants = async (
   $: EngineInterface,
   models: string[],
-): Promise<Record<string, string[]>> => {
+): Promise<Pick<Catalog, 'variants' | 'variantsError'>> => {
   try {
-    const response = await $.http.fetch('https://models.dev/api.json')
-    const api: unknown = JSON.parse(response.text)
+    const script = `${$.plugin.root}/scripts/variants.mjs`
+    const result = await $.process.run(['node', script, ...models], { timeoutMs: 60000 })
+    if (result.exitCode !== 0) {
+      throw new Error(result.stderr.trim() || `node exited with ${result.exitCode}`)
+    }
+    const api: unknown = JSON.parse(result.stdout)
     const variants: Record<string, string[]> = {}
     for (const model of models) variants[model] = variantsFor(api, model)
-    return variants
-  } catch {
-    return {}
+    return { variants, variantsError: null }
+  } catch (cause) {
+    return { variants: {}, variantsError: messageOf(cause) }
   }
 }
 
@@ -90,7 +96,7 @@ const readCatalog = async (
 ): Promise<{ catalog: Catalog | null; error: string | null }> => {
   try {
     const models = await listModels($)
-    return { catalog: { models, variants: await loadVariants($, models) }, error: null }
+    return { catalog: { models, ...(await loadVariants($, models)) }, error: null }
   } catch (cause) {
     return { catalog: null, error: messageOf(cause) }
   }
@@ -220,7 +226,9 @@ export const register: Register = on => {
 
         {current ? <Text key="variant-heading">Variant</Text> : null}
         {current && variants.length === 0 ? (
-          <Text key="variants-unavailable" dimColor>variants unavailable</Text>
+          <Text key="variants-unavailable" dimColor>
+            {known?.variantsError ? `variants unavailable: ${known.variantsError}` : 'variants unavailable'}
+          </Text>
         ) : null}
         {variants.map(variant => (
           <Button
