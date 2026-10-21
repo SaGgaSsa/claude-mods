@@ -4,17 +4,19 @@ import type { EngineInterface, Register } from 'claude-code'
 import type { Catalog, ModelConfig } from '../types'
 import {
   formatConfig,
-  INSTALL_COMMAND,
-  INSTALL_DOCS,
   parseConfig,
   parseModels,
   variantAfterModelChange,
   variantsFor,
 } from './catalog'
+import { actionOf, CONFIG_FILE, HOME_MISSING, viewOf, yiraTree, type Row } from './view'
+import { connectYira, type YiraPanels } from './yira'
 
 const PANE = 'opencode-delegation'
-const CONFIG_FILE = '/.codex/opencode-model.json'
-const HOME_MISSING = 'USERPROFILE and HOME are both unset'
+const TITLE = 'OpenCode delegation'
+const YIRA_PANEL = 'delegation'
+
+let yira: YiraPanels | null = null
 
 const config = atom({ plugin: 'opencode-delegation', key: 'config' } as const, null)
 const catalog = atom({ plugin: 'opencode-delegation', key: 'catalog' } as const, null)
@@ -27,6 +29,21 @@ const messageOf = (cause: unknown): string =>
 
 const homeDirectory = async ($: EngineInterface): Promise<string | undefined> =>
   (await $.env.get('USERPROFILE')) ?? (await $.env.get('HOME'))
+
+const readView = async ($: EngineInterface): Promise<Row[]> =>
+  viewOf({
+    installed: await read($, installed),
+    isLoading: await read($, isLoading),
+    config: await read($, config),
+    catalog: await read($, catalog),
+    error: await read($, error),
+    home: await homeDirectory($),
+  })
+
+const publish = async ($: EngineInterface): Promise<void> => {
+  if (!yira) return
+  await yira.show(YIRA_PANEL, TITLE, yiraTree(await readView($)))
+}
 
 // The file the OpenCode delegation script reads.
 const configPath = async ($: EngineInterface): Promise<string> => {
@@ -106,6 +123,7 @@ const readCatalog = async (
 const load = async ($: EngineInterface): Promise<void> => {
   await update($, isLoading, () => true)
   await update($, error, () => null)
+  await publish($)
 
   const installation = await probeOpenCode($)
   await update($, installed, () => installation)
@@ -114,6 +132,7 @@ const load = async ($: EngineInterface): Promise<void> => {
     await update($, config, () => null)
     await update($, catalog, () => null)
     await update($, isLoading, () => false)
+    await publish($)
     return
   }
 
@@ -123,6 +142,7 @@ const load = async ($: EngineInterface): Promise<void> => {
   await update($, catalog, () => catalogue.catalog)
   await update($, error, () => configuration.error ?? catalogue.error)
   await update($, isLoading, () => false)
+  await publish($)
 }
 
 const saveConfig = async ($: EngineInterface, next: ModelConfig): Promise<boolean> => {
@@ -145,6 +165,7 @@ const chooseModel = async ($: EngineInterface, id: string): Promise<void> => {
     variant: variantAfterModelChange(previous, variants),
   })
   if (saved) $.ui.toast(`OpenCode: ${id}`)
+  await publish($)
 }
 
 const chooseVariant = async ($: EngineInterface, variant: string): Promise<void> => {
@@ -153,7 +174,22 @@ const chooseVariant = async ($: EngineInterface, variant: string): Promise<void>
   if (!current) return
   const saved = await saveConfig($, { ...current, variant })
   if (saved) $.ui.toast(variant === '' ? 'OpenCode: none' : `OpenCode: ${variant}`)
+  await publish($)
 }
+
+const press = async ($: EngineInterface, key: string): Promise<void> => {
+  const action = actionOf(key)
+  if (!action) return
+  if (action.kind === 'model') await chooseModel($, action.id)
+  else if (action.kind === 'variant') await chooseVariant($, action.variant)
+  else await load($)
+}
+
+const handlePress =
+  ($: EngineInterface) =>
+  (panelId: string, key: string): void => {
+    if (panelId === YIRA_PANEL) void press($, key)
+  }
 
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
@@ -161,91 +197,49 @@ export const register: Register = on => {
       name: 'opencode-delegation',
       description: 'Pick the OpenCode delegation model and variant',
     })
+    yira ??= await connectYira($, handlePress($))
     return next(e)
   })
 
   on('command.run', { command: 'opencode-delegation' }, async $ => {
-    await $.ui.open({ id: PANE, title: 'OpenCode delegation' })
+    // /clear ends the session without another start, so reconnect to restore the panel.
+    yira ??= await connectYira($, handlePress($))
+    await $.ui.open({ id: PANE, title: TITLE })
     void load($)
     return { text: 'OpenCode delegation pane opened.' }
   })
 
+  on('session.end', async ($, e, next) => {
+    await yira?.close(YIRA_PANEL)
+    yira?.stop()
+    yira = null
+    return next(e)
+  })
+
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
     const { Box, Text, Button } = $.ui.resolve(e)
-    const installation = await read($, installed)
-    const loading = await read($, isLoading)
-
-    // Until the first check answers, say so instead of claiming OpenCode is missing.
-    if (!installation && loading) {
-      return <Text key="loading" dimColor>Checking OpenCode…</Text>
-    }
-
-    if (!installation) {
-      return (
-        <Box flexDirection="column">
-          <Text key="not-installed">OpenCode is not installed.</Text>
-          <Text key="install-with">Install it with:</Text>
-          <Text key="install-command">{INSTALL_COMMAND}</Text>
-          <Text key="install-docs">{`Docs: ${INSTALL_DOCS}`}</Text>
-          <Text key="check-again">Then press Check again.</Text>
-          <Button key="refresh" label="Check again" onPress={() => load($)} />
-        </Box>
-      )
-    }
-
-    const current = await read($, config)
-    const known = await read($, catalog)
-    const failure = await read($, error)
-    const variants = current ? known?.variants[current.model] ?? [] : []
-    const home = current ? null : await homeDirectory($)
+    const rows = await readView($)
 
     return (
       <Box flexDirection="column">
-        <Text key="current">
-          {current
-            ? `Current: ${current.model}${current.variant ? `#${current.variant}` : ''}`
-            : home ? `No config at ${home}${CONFIG_FILE}` : `No config: ${HOME_MISSING}`}
-        </Text>
-        <Text key="version" dimColor>{installation.version}</Text>
-        {current && known && !known.models.includes(current.model) ? (
-          <Text key="missing" color="red">
-            {`${current.model} is no longer in the OpenCode catalog. Pick another.`}
-          </Text>
-        ) : null}
-        {loading ? <Text key="loading" dimColor>Loading…</Text> : null}
-        {failure ? <Text key="error" color="red">{failure}</Text> : null}
-
-        <Text key="models-heading">Models</Text>
-        {(known?.models ?? []).map(id => (
-          <Button
-            key={`model:${id}`}
-            label={`${id === current?.model ? '● ' : '  '}${id}`}
-            onPress={() => chooseModel($, id)}
-          />
-        ))}
-
-        {current ? <Text key="variant-heading">Variant</Text> : null}
-        {current && variants.length === 0 ? (
-          <Text key="variants-unavailable" dimColor>
-            {known?.variantsError ? `variants unavailable: ${known.variantsError}` : 'variants unavailable'}
-          </Text>
-        ) : null}
-        {variants.map(variant => (
-          <Button
-            key={`variant:${variant}`}
-            label={`${variant === current?.variant ? '● ' : '  '}${variant}`}
-            onPress={() => chooseVariant($, variant)}
-          />
-        ))}
-        {current ? (
-          <Button
-            key="variant:none"
-            label={`${current.variant === '' ? '● ' : '  '}none`}
-            onPress={() => chooseVariant($, '')}
-          />
-        ) : null}
-
-        <Button key="refresh" label="Refresh" onPress={() => load($)} />
+        {rows.map(row =>
+          row.kind === 'text' ? (
+            <Text
+              key={row.key}
+              dimColor={row.tone === 'muted'}
+              color={row.tone === 'danger' ? 'red' : undefined}
+            >
+              {row.text}
+            </Text>
+          ) : (
+            <Button
+              key={row.key}
+              label={row.label}
+              variant={row.isCurrent ? 'primary' : undefined}
+              onPress={() => press($, row.key)}
+            />
+          ),
+        )}
       </Box>
     )
   })

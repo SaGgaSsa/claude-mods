@@ -1,6 +1,6 @@
 {
   "name": "opencode-delegation",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Pick the model and variant used for OpenCode delegation, in a pane",
   "author": { "name": "SaGgaSsa" },
   "types": "./types/index.d.ts"

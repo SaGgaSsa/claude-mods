@@ -36,6 +36,8 @@ Install for users: see README.md (`/plugin marketplace add SaGgaSsa/claude-mods`
 - The runtime has no DOM and no Node. JSX compiles against the global `h`; elements come from
   `$.ui.resolve(e)` (hooks) or `surface.elements` (Client modules), never from imports.
 - Adding a mod: new folder with the files above, an entry in `marketplace.json`, a README section.
+- A mod with UI can also publish to Yira's Mods tab: the `yira-panel` skill (`.claude/skills/yira-panel/`)
+  has the pattern; `opencode-delegation` implements it.
 
 ## sudoku architecture
 
