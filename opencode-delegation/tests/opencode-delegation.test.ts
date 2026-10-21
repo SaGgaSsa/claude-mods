@@ -1,5 +1,5 @@
 import type { On } from 'claude-code'
-import { expect, test } from 'claude-code/testing'
+import { expect, mock, test } from 'claude-code/testing'
 import type { Engine } from 'claude-code/testing'
 
 import {
@@ -11,6 +11,8 @@ import {
   variantAfterModelChange,
   variantsFor,
 } from '../hooks/catalog'
+import { actionOf } from '../hooks/view'
+import type { YiraNode } from '../hooks/yira'
 
 const CONFIG_PATH = 'C:/Users/u/.codex/opencode-model.json'
 const MODELS_STDOUT = 'opencode/a-free\r\nopencode/b-free\r\n'
@@ -34,14 +36,29 @@ const PANE_PROPS = {
   view: {},
 } as const
 
+type FetchRequest = {
+  url: string
+  init?: { method?: string; headers?: Record<string, string>; body?: string }
+}
+
+type Fetched = {
+  status: number
+  ok: boolean
+  headers: Record<string, string>
+  text: string
+}
+
 type Stubs = {
   api?: unknown
   variantsFail?: boolean
   stdout?: string
   version?: () => string | null
   throwVersion?: boolean
+  env?: Record<string, string>
   onArgv?: (argv: readonly string[]) => void
   onRead?: (path: string) => void
+  onFetch?: (e: FetchRequest) => void
+  fetch?: (e: FetchRequest) => Fetched
 }
 
 const runResult = (exitCode: number, stdout: string, stderr = '') => ({
@@ -59,12 +76,21 @@ const wire = (on: On, files: Record<string, string>, stubs: Stubs = {}) => {
   const keyOf = (path: string) => path.replaceAll('\\', '/')
 
   on('session.start', (_, e) => ({ cwd: e.cwd }))
+  on('session.end', (_, e) => ({ sessionId: e.sessionId }))
   on('command.register', (_, e) => ({ value: { command: e.name } }))
   on('ui.open', () => ({ value: { isPlaced: true } }))
   on('ui.toast', () => ({ value: undefined }))
   on('env.get', (_, e) => ({
-    value: e.name === 'USERPROFILE' ? 'C:/Users/u' : e.name === 'OS' ? 'Windows_NT' : undefined,
+    value:
+      stubs.env?.[e.name] ??
+      (e.name === 'USERPROFILE' ? 'C:/Users/u' : e.name === 'OS' ? 'Windows_NT' : undefined),
   }))
+  on('http.fetch', (_, e) => {
+    stubs.onFetch?.(e)
+    return {
+      value: stubs.fetch?.(e) ?? { status: 404, ok: false, headers: {}, text: '' },
+    }
+  })
   on('fs.read', (_, e) => {
     stubs.onRead?.(e.path)
     const text = files[keyOf(e.path)]
@@ -168,17 +194,22 @@ test('the pane lists the catalog, marks the current model and saves picks', asyn
 
   expect(await ui.find({ type: 'Text', text: /^Current: opencode\/a-free#max$/ })).toBeDefined()
   expect((await ui.find({ type: 'Text', text: VERSION }))?.props.dimColor).toBe(true)
-  expect((await ui.find({ key: 'model:opencode/a-free' }))?.props.label).toBe('● opencode/a-free')
-  expect((await ui.find({ key: 'model:opencode/b-free' }))?.props.label).toBe('  opencode/b-free')
-  expect((await ui.find({ key: 'variant:max' }))?.props.label).toBe('● max')
-  expect((await ui.find({ key: 'variant:min' }))?.props.label).toBe('  min')
+  expect((await ui.find({ key: 'model:opencode/a-free' }))?.props.label).toBe('opencode/a-free')
+  expect((await ui.find({ key: 'model:opencode/a-free' }))?.props.variant).toBe('primary')
+  expect((await ui.find({ key: 'model:opencode/b-free' }))?.props.label).toBe('opencode/b-free')
+  expect((await ui.find({ key: 'model:opencode/b-free' }))?.props.variant).toBeUndefined()
+  expect((await ui.find({ key: 'variant:max' }))?.props.label).toBe('max')
+  expect((await ui.find({ key: 'variant:max' }))?.props.variant).toBe('primary')
+  expect((await ui.find({ key: 'variant:min' }))?.props.label).toBe('min')
+  expect((await ui.find({ key: 'variant:min' }))?.props.variant).toBeUndefined()
   expect(await ui.find({ key: 'variant:low' })).toBeUndefined()
 
   // max is not a b-free variant, so the pick falls back to its last one.
   await ui.press({ key: 'model:opencode/b-free' })
   expect(files[CONFIG_PATH]).toBe('{\n  "model": "opencode/b-free",\n  "variant": "high"\n}\n')
   expect(await ui.find({ type: 'Text', text: /^Current: opencode\/b-free#high$/ })).toBeDefined()
-  expect((await ui.find({ key: 'variant:high' }))?.props.label).toBe('● high')
+  expect((await ui.find({ key: 'variant:high' }))?.props.label).toBe('high')
+  expect((await ui.find({ key: 'variant:high' }))?.props.variant).toBe('primary')
 
   // Picking the same model again keeps a variant it still offers.
   await ui.press({ key: 'model:opencode/b-free' })
@@ -202,8 +233,10 @@ test('the pane saves a variant pick and clears it with none', async ($, on) => {
 
   await ui.press({ key: 'variant:min' })
   expect(files[CONFIG_PATH]).toBe('{\n  "model": "opencode/a-free",\n  "variant": "min"\n}\n')
-  expect((await ui.find({ key: 'variant:min' }))?.props.label).toBe('● min')
-  expect((await ui.find({ key: 'variant:max' }))?.props.label).toBe('  max')
+  expect((await ui.find({ key: 'variant:min' }))?.props.label).toBe('min')
+  expect((await ui.find({ key: 'variant:min' }))?.props.variant).toBe('primary')
+  expect((await ui.find({ key: 'variant:max' }))?.props.label).toBe('max')
+  expect((await ui.find({ key: 'variant:max' }))?.props.variant).toBeUndefined()
 
   await ui.press({ key: 'variant:none' })
   expect(files[CONFIG_PATH]).toBe('{\n  "model": "opencode/a-free",\n  "variant": ""\n}\n')
@@ -303,5 +336,125 @@ test('the pane says why the variants could not be loaded', async ($, on) => {
   expect(await ui.find({ type: 'Text', text: /variants unavailable: models.dev answered 503/ })).toBeDefined()
   expect(await ui.find({ key: 'variant:none' })).toBeDefined()
   expect(await ui.find({ key: 'variant:max' })).toBeUndefined()
+  await ui.unmount()
+})
+
+test('actionOf maps panel keys to actions and ignores the rest', () => {
+  expect(actionOf('model:opencode/a-free')).toEqual({ kind: 'model', id: 'opencode/a-free' })
+  expect(actionOf('variant:max')).toEqual({ kind: 'variant', variant: 'max' })
+  expect(actionOf('variant:none')).toEqual({ kind: 'variant', variant: '' })
+  expect(actionOf('refresh')).toEqual({ kind: 'refresh' })
+  expect(actionOf('')).toBeNull()
+  expect(actionOf('model:')).toBeNull()
+  expect(actionOf('variant:')).toBeNull()
+  expect(actionOf('other')).toBeNull()
+})
+
+// Out of Yira, nothing may reach the network: no panel exists to publish.
+const runWithoutYira = async ($: Engine, on: On, env: Record<string, string>, onFetch: () => void) => {
+  const files: Record<string, string> = {
+    [CONFIG_PATH]: formatConfig({ model: 'opencode/a-free', variant: 'max' }),
+  }
+  wire(on, files, { env, onFetch })
+  const ui = await open($)
+
+  await ui.press({ key: 'model:opencode/b-free' })
+  await ui.press({ key: 'variant:high' })
+  await ui.unmount()
+  await $.session.end({ reason: 'other', sessionId: 's1', resume: { id: 's1' } })
+}
+
+test('no Yira variables means the whole run makes no requests', async ($, on) => {
+  let fetches = 0
+  await runWithoutYira($, on, {}, () => { fetches++ })
+  expect(fetches).toBe(0)
+})
+
+test('only the bridge file still means no requests', async ($, on) => {
+  let fetches = 0
+  await runWithoutYira($, on, { YIRA_MOD_BRIDGE_FILE: 'C:/yira/bridge.json' }, () => { fetches++ })
+  expect(fetches).toBe(0)
+})
+
+type Panel = { tileId: string; plugin: string; id: string; title: string; tree: YiraNode }
+type ButtonFound = { key: string; label?: string; variant?: string }
+
+const buttonIn = (tree: YiraNode, key: string): ButtonFound | undefined => {
+  if (typeof tree === 'string') return undefined
+  if (tree.type === 'Button') return tree.props.key === key ? tree.props : undefined
+  if (!('children' in tree)) return undefined
+  for (const child of tree.children ?? []) {
+    const found = buttonIn(child, key)
+    if (found) return found
+  }
+  return undefined
+}
+
+test('in Yira the panel mirrors the pane and takes its presses', async ($, on) => {
+  const clock = mock.clock(on)
+  const files: Record<string, string> = {
+    [CONFIG_PATH]: formatConfig({ model: 'opencode/a-free', variant: 'max' }),
+    'C:/yira/bridge.json': '{"url":"http://127.0.0.1:5000","token":"t"}',
+  }
+  const panels: Panel[] = []
+  const closes: Array<{ id: string }> = []
+  let queue: Array<{ kind: string; id: string; key: string }> = []
+
+  const reply = (status: number, body: unknown): Fetched => ({
+    status,
+    ok: status >= 200 && status < 300,
+    headers: {},
+    text: JSON.stringify(body),
+  })
+
+  wire(on, files, {
+    env: {
+      YIRA_MOD_BRIDGE_FILE: 'C:/yira/bridge.json',
+      YIRA_AGENT_TILE_ID: 'tile-1',
+    },
+    fetch: e => {
+      if (e.url.endsWith('/panels')) {
+        panels.push(JSON.parse(e.init?.body ?? '{}') as Panel)
+        return reply(200, {})
+      }
+      if (e.url.endsWith('/panels/close')) {
+        closes.push(JSON.parse(e.init?.body ?? '{}') as { id: string })
+        return reply(200, {})
+      }
+      if (e.url.includes('/events?')) {
+        const events = queue
+        queue = []
+        return reply(200, { events })
+      }
+      return reply(404, {})
+    },
+  })
+
+  const ui = await open($)
+  // The command's own load runs unawaited; let it publish before reading the latest panel.
+  await clock.settle()
+  const lastPanel = (): Panel => panels[panels.length - 1]!
+
+  expect(lastPanel().tileId).toBe('tile-1')
+  expect(lastPanel().plugin).toBe('opencode-delegation')
+  expect(lastPanel().id).toBe('delegation')
+  expect(lastPanel().title).toBe('OpenCode delegation')
+  expect(buttonIn(lastPanel().tree, 'model:opencode/a-free')?.variant).toBe('primary')
+  expect(buttonIn(lastPanel().tree, 'variant:max')?.variant).toBe('primary')
+
+  queue = [{ kind: 'press', id: 'delegation', key: 'model:opencode/b-free' }]
+  await clock.advance(20)
+
+  expect(files[CONFIG_PATH]).toBe('{\n  "model": "opencode/b-free",\n  "variant": "high"\n}\n')
+  expect(buttonIn(lastPanel().tree, 'model:opencode/b-free')?.variant).toBe('primary')
+
+  queue = [{ kind: 'press', id: 'other', key: 'model:opencode/a-free' }]
+  await clock.advance(20)
+
+  expect(files[CONFIG_PATH]).toBe('{\n  "model": "opencode/b-free",\n  "variant": "high"\n}\n')
+  expect(buttonIn(lastPanel().tree, 'model:opencode/b-free')?.variant).toBe('primary')
+
+  await $.session.end({ reason: 'other', sessionId: 's1', resume: { id: 's1' } })
+  expect(closes.at(-1)?.id).toBe('delegation')
   await ui.unmount()
 })

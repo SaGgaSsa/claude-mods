@@ -153,8 +153,8 @@ the pane writes that file and nothing else.
 - The pane checks `opencode --version` first. Without OpenCode it shows how to
   install it (`npm i -g @opencode/cli`), the docs link and a `Check again`
   button instead of any model list.
-- `Models` lists what `opencode models` answers, and marks the current one with
-  a dot. Click a model to switch: the pane keeps the current variant when the
+- `Models` lists what `opencode models` answers, and draws the current one as
+  the primary button. Click a model to switch: the pane keeps the current variant when the
   new model also offers it, else it picks `max`, else the last one it knows.
 - `Variant` lists the effort variants models.dev knows for the current model,
   plus `none` to leave the variant empty. `node` fetches them
@@ -167,6 +167,10 @@ the pane writes that file and nothing else.
   lookup.
 - It needs `USERPROFILE` or `HOME` to find the config file; with both unset it
   shows an error and neither reads nor writes the file.
+- Inside a [Yira](https://github.com/SaGgaSsa/yira) terminal it also publishes
+  the same panel to Yira's Mods tab (`hooks/yira.ts`, Yira's mod kit), and its
+  buttons act as the pane's. Elsewhere `YIRA_MOD_BRIDGE_FILE` is unset and
+  only the pane is shown.
 
 ## Adding a mod
 
